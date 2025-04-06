@@ -1,0 +1,31 @@
+server:
+  port: 8081
+
+spring:
+  datasource:
+    url: jdbc:postgresql://localhost:5432/user_app
+    username: postgres
+    password: postgres
+    driver-class-name: org.postgresql.Driver
+
+  jpa:
+    hibernate:
+      ddl-auto: update
+    show-sql: true
+    properties:
+      hibernate:
+        format_sql: true
+
+  flyway:
+    url: jdbc:postgresql://localhost:5432/user_app
+    username: postgres
+    password: postgres
+    baseline-on-migrate: true
+    locations: classpath:db/migration
+
+jwt:
+  secret: "giperbaba8key5ultra7secret2nobody999knows12345"
+  access-expiration-ms: 3600000
+  refresh-expiration-ms: 86400000
+
+
