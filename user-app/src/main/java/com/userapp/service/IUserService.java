@@ -2,18 +2,28 @@ package com.userapp.service;
 
 import com.userapp.dto.request.AuthRequestDto;
 import com.userapp.dto.request.RefreshTokenRequestDto;
-
-import com.userapp.dto.request.RegisterRequestDto;
+import com.userapp.dto.request.UserRegisterRequestDto;
+import com.userapp.dto.request.UserUpdateRequestDto;
 import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.http.ResponseEntity;
 
+import java.util.UUID; // Убедитесь, что это импортировано, если ваш User ID - UUID
+
 public interface IUserService {
 
-    public ResponseEntity<?> login(AuthRequestDto authRequest);
+    ResponseEntity<?> login(AuthRequestDto authRequest);
 
-    public ResponseEntity<?> register(RegisterRequestDto registerRequest);
+    ResponseEntity<?> register(UserRegisterRequestDto registerRequest);
 
-    public ResponseEntity<?> refresh(RefreshTokenRequestDto refreshTokenRequest);
+    ResponseEntity<?> refresh(RefreshTokenRequestDto refreshTokenRequest);
 
-    public ResponseEntity<?> logout(HttpServletRequest request);
+    ResponseEntity<?> logout(HttpServletRequest request);
+
+    ResponseEntity<?> getMyProfile();
+
+    ResponseEntity<?> getUserProfile(UUID userId);
+
+    ResponseEntity<?> updateMyProfile(UserUpdateRequestDto updateRequest);
+
+    ResponseEntity<?> deactivateUser(UUID userId);
 }

@@ -2,22 +2,23 @@ package com.userapp.controller;
 
 import com.userapp.dto.request.AuthRequestDto;
 import com.userapp.dto.request.RefreshTokenRequestDto;
-import com.userapp.dto.request.RegisterRequestDto;
+import com.userapp.dto.request.UserRegisterRequestDto;
+import com.userapp.dto.request.UserUpdateRequestDto;
+import com.userapp.service.IUserService;
 import com.userapp.service.UserService;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.web.bind.annotation.*;
+
+import java.util.UUID;
 
 @RestController
 @RequestMapping("/api/user")
 public class UserController {
 
-    private final UserService userService;
+    private final IUserService userService;
 
     public UserController(UserService userService) {
         this.userService = userService;
@@ -29,7 +30,7 @@ public class UserController {
     }
 
     @PostMapping("/register")
-    public ResponseEntity<?> register(@Valid @RequestBody RegisterRequestDto registerRequest) {
+    public ResponseEntity<?> register(@Valid @RequestBody UserRegisterRequestDto registerRequest) {
         return userService.register(registerRequest);
     }
 
@@ -42,4 +43,29 @@ public class UserController {
     public ResponseEntity<?> logout(HttpServletRequest request) {
         return userService.logout(request);
     }
+
+    @GetMapping("/profile")
+    @PreAuthorize("isAuthenticated()")
+    public ResponseEntity<?> getMyProfile() {
+        return userService.getMyProfile();
+    }
+
+    @GetMapping("/profile/{userId}")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<?> getUserProfile(@PathVariable UUID userId) {
+        return userService.getUserProfile(userId);
+    }
+
+    @PutMapping("/profile/update")
+    @PreAuthorize("isAuthenticated()")
+    public ResponseEntity<?> updateMyProfile(@Valid @RequestBody UserUpdateRequestDto updateRequest) {
+        return userService.updateMyProfile(updateRequest);
+    }
+
+    @DeleteMapping("/profile/{userId}")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<?> deactivateUser(@PathVariable UUID userId) {
+        return userService.deactivateUser(userId);
+    }
 }
+

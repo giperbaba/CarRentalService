@@ -2,6 +2,7 @@ package com.userapp.util;
 
 import com.userapp.dto.JwtDto;
 import com.userapp.entity.User;
+import com.userapp.service.TokenBlacklistService;
 import io.jsonwebtoken.*;
 import io.jsonwebtoken.io.Decoders;
 import io.jsonwebtoken.security.Keys;
@@ -28,6 +29,8 @@ import java.util.stream.Collectors;
 public class JwtUtil {
     private static final Logger LOGGER = LogManager.getLogger(JwtUtil.class);
 
+    private final TokenBlacklistService tokenBlacklistService;
+
     @Value("${jwt.secret}")
     private String secret;
 
@@ -38,6 +41,10 @@ public class JwtUtil {
     private long refreshExpiration;
 
     private SecretKey key;
+
+    public JwtUtil(TokenBlacklistService tokenBlacklistService) {
+        this.tokenBlacklistService = tokenBlacklistService;
+    }
 
     @PostConstruct
     public void init() {
@@ -68,6 +75,9 @@ public class JwtUtil {
 
     public boolean validateToken(String token) {
         try {
+            if (tokenBlacklistService.isBlacklisted(token)) {
+                throw new JwtException("Token is blacklisted");
+            }
             parseToken(token);
             return true;
         }
@@ -85,6 +95,9 @@ public class JwtUtil {
         }
     }
 
+    public void blacklistToken(String token) {
+        tokenBlacklistService.blacklistToken(token);
+    }
 
     private Claims parseToken(String token) {
         return Jwts.parser()
@@ -106,7 +119,9 @@ public class JwtUtil {
                 .issuedAt(now)
                 .expiration(expiryDate)
                 .signWith(key)
-                .claims(Map.of("roles", authentication.getAuthorities().stream().map(GrantedAuthority::getAuthority).collect(Collectors.toList())))
+                .claims(Map.of("roles", authentication.getAuthorities().stream()
+                        .map(GrantedAuthority::getAuthority)
+                        .collect(Collectors.toList())))
                 .compact();
     }
 

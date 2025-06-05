@@ -52,7 +52,7 @@ public class SecurityConfig {
                 .authorizeHttpRequests((authorize) -> authorize
                         //.requestMatchers('/test/secured').hasRole("ADMIN")
                         //.requestMatchers('/test/secured').authenticated()
-                        .requestMatchers("/api/user/login", "/api/user/register", "/api/user/refresh").permitAll()
+                        .requestMatchers("/api/user/login", "/api/user/register", "/api/user/refresh", "/error").permitAll()
                         .anyRequest().authenticated())
 
                 .exceptionHandling(exceptions -> exceptions

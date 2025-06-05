@@ -4,9 +4,10 @@ import com.fasterxml.jackson.annotation.JsonFormat;
 import com.userapp.enums.Gender;
 import jakarta.validation.constraints.*;
 
+import java.time.LocalDate;
 import java.util.Date;
 
-public record RegisterRequestDto(
+public record UserRegisterRequestDto(
         @NotBlank(message = "Name is required")
         @Size(min = 2, max = 50, message = "Name must be between 2 and 50 characters")
         String name,
@@ -17,7 +18,7 @@ public record RegisterRequestDto(
 
         @NotNull(message = "Birthday is required")
         @JsonFormat(pattern = "yyyy-MM-dd")
-        Date birthday,
+        LocalDate birthday,
 
         @NotBlank(message = "Email is required")
         @Email(message = "Email should be valid")
