@@ -18,7 +18,6 @@ public class RouteConfig {
     @Bean
     public RouteLocator customRouteLocator(RouteLocatorBuilder builder) {
         return builder.routes()
-                // User Service Routes
                 .route("user-service", r -> r
                         .path("/api/user/**")
                         .filters(f -> f.filter(authFilter))

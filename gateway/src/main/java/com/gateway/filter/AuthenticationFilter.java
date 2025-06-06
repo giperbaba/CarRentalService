@@ -38,23 +38,19 @@ public class AuthenticationFilter implements GatewayFilter {
         ServerHttpRequest request = exchange.getRequest();
         String path = request.getPath().value();
 
-        // Generate and set request ID
         String requestId = UUID.randomUUID().toString();
         MDC.put("requestId", requestId);
         ServerHttpRequest modifiedRequest = request.mutate()
                 .header(REQUEST_ID_HEADER, requestId)
                 .build();
 
-        // Log incoming request
         logger.info("Incoming request: {} {}", request.getMethod(), path);
 
-        // Skip authentication for open endpoints
         if (OPEN_ENDPOINTS.stream().anyMatch(path::endsWith)) {
             return chain.filter(exchange.mutate().request(modifiedRequest).build())
                     .doFinally(signalType -> MDC.clear());
         }
 
-        // Check for Authorization header
         List<String> authHeaders = request.getHeaders().get(AUTHORIZATION_HEADER);
         if (authHeaders == null || authHeaders.isEmpty()) {
             return onError(exchange, "No authorization header", HttpStatus.UNAUTHORIZED);
@@ -70,7 +66,6 @@ public class AuthenticationFilter implements GatewayFilter {
             return onError(exchange, "Invalid JWT token", HttpStatus.UNAUTHORIZED);
         }
 
-        // Continue with the valid request
         return chain.filter(exchange.mutate().request(modifiedRequest).build())
                 .doFinally(signalType -> MDC.clear());
     }
