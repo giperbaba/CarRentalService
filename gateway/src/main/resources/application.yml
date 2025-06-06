@@ -1,0 +1,28 @@
+server:
+  port: 8080
+
+spring:
+  application:
+    name: api-gateway
+  cloud:
+    gateway:
+      default-filters:
+        - DedupeResponseHeader=Access-Control-Allow-Origin
+      globalcors:
+        corsConfigurations:
+          '[/**]':
+            allowedOrigins: "*"
+            allowedMethods: "*"
+            allowedHeaders: "*"
+
+jwt:
+  secret: "giperbaba8key5ultra7secret2nobody999knows12345"
+
+logging:
+  pattern:
+    console: "%d{HH:mm:ss.SSS} [%thread] [%X{requestId}] %-5level %logger{36} - %msg%n"
+  level:
+    org.springframework.cloud.gateway: INFO
+    reactor.netty: INFO
+    org.springframework.web: INFO
+    com.gateway: DEBUG 
