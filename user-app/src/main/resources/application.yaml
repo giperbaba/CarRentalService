@@ -34,7 +34,7 @@ jwt:
 
 logging:
   pattern:
-    console: "%d{HH:mm:ss.SSS} [%thread] [%X{requestId}] %-5level %logger{36} - %msg%n"
+    console: "%d{HH:mm:ss.SSS} [%thread] %-5level %logger{36} - %msg%n"
   level:
     root: INFO
     com.userapp: DEBUG

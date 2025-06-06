@@ -1,7 +1,6 @@
 package com.userapp.config;
 
 import com.userapp.filter.JwtAuthenticationFilter;
-import com.userapp.filter.MdcFilter;
 import com.userapp.service.CustomUserDetailsService;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -26,14 +25,11 @@ public class SecurityConfig {
 
     private final JwtAuthenticationFilter jwtAuthFilter;
     private final CustomUserDetailsService customUserDetailsService;
-    private final MdcFilter mdcFilter;
 
     public SecurityConfig(JwtAuthenticationFilter jwtAuthFilter,
-                        CustomUserDetailsService customUserDetailsService,
-                        MdcFilter mdcFilter) {
+                        CustomUserDetailsService customUserDetailsService) {
         this.jwtAuthFilter = jwtAuthFilter;
         this.customUserDetailsService = customUserDetailsService;
-        this.mdcFilter = mdcFilter;
     }
 
     @Bean
@@ -46,7 +42,6 @@ public class SecurityConfig {
                 )
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authenticationProvider(authenticationProvider())
-                .addFilterBefore(mdcFilter, UsernamePasswordAuthenticationFilter.class)
                 .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class)
                 .build();
     }
