@@ -21,6 +21,7 @@
     <modules>
         <module>user-app</module>
         <module>gateway</module>
+        <module>car-app</module>
     </modules>
 
     <dependencyManagement>

@@ -4,8 +4,10 @@ import com.gateway.util.JwtUtil;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.slf4j.MDC;
-import org.springframework.cloud.gateway.filter.GatewayFilter;
 import org.springframework.cloud.gateway.filter.GatewayFilterChain;
+import org.springframework.cloud.gateway.filter.GlobalFilter;
+import org.springframework.core.Ordered;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.server.reactive.ServerHttpRequest;
 import org.springframework.http.server.reactive.ServerHttpResponse;
@@ -17,10 +19,12 @@ import java.util.List;
 import java.util.UUID;
 
 @Component
-public class AuthenticationFilter implements GatewayFilter {
+public class AuthenticationFilter implements GlobalFilter, Ordered {
     private static final Logger logger = LoggerFactory.getLogger(AuthenticationFilter.class);
     private static final String AUTHORIZATION_HEADER = "Authorization";
     private static final String REQUEST_ID_HEADER = "X-Request-ID";
+    private static final String ROLES_HEADER = "X-Roles";
+    private static final String USERNAME_HEADER = "X-Username";
     private static final List<String> OPEN_ENDPOINTS = List.of(
             "/api/user/login",
             "/api/user/register",
@@ -40,24 +44,19 @@ public class AuthenticationFilter implements GatewayFilter {
 
         String requestId = UUID.randomUUID().toString();
         MDC.put("requestId", requestId);
-        ServerHttpRequest modifiedRequest = request.mutate()
-                .header(REQUEST_ID_HEADER, requestId)
-                .build();
 
-        logger.info("Incoming request: {} {}", request.getMethod(), path);
+        logger.info("Incoming request: {} {} with headers: {}", request.getMethod(), path, request.getHeaders());
 
         if (OPEN_ENDPOINTS.stream().anyMatch(path::endsWith)) {
-            return chain.filter(exchange.mutate().request(modifiedRequest).build())
-                    .doFinally(signalType -> MDC.clear());
+            return chain.filter(exchange);
         }
 
-        List<String> authHeaders = request.getHeaders().get(AUTHORIZATION_HEADER);
-        if (authHeaders == null || authHeaders.isEmpty()) {
+        if (!request.getHeaders().containsKey(HttpHeaders.AUTHORIZATION)) {
             return onError(exchange, "No authorization header", HttpStatus.UNAUTHORIZED);
         }
 
-        String authHeader = authHeaders.get(0);
-        if (!authHeader.startsWith("Bearer ")) {
+        String authHeader = request.getHeaders().getFirst(HttpHeaders.AUTHORIZATION);
+        if (authHeader == null || !authHeader.startsWith("Bearer ")) {
             return onError(exchange, "Invalid authorization header", HttpStatus.UNAUTHORIZED);
         }
 
@@ -66,8 +65,22 @@ public class AuthenticationFilter implements GatewayFilter {
             return onError(exchange, "Invalid JWT token", HttpStatus.UNAUTHORIZED);
         }
 
-        return chain.filter(exchange.mutate().request(modifiedRequest).build())
-                .doFinally(signalType -> MDC.clear());
+        List<String> roles = jwtUtil.getRolesFromToken(token);
+        String username = jwtUtil.getUsernameFromToken(token);
+
+        ServerHttpRequest modifiedRequest = request.mutate()
+                .header(REQUEST_ID_HEADER, requestId)
+                .header(ROLES_HEADER, String.join(",", roles))
+                .header(USERNAME_HEADER, username)
+                .build();
+
+        logger.debug("Added headers - X-Roles: {}, X-Username: {}", String.join(",", roles), username);
+        logger.debug("Final request headers: {}", modifiedRequest.getHeaders());
+
+        exchange.getAttributes().put("roles", String.join(",", roles));
+        exchange.getAttributes().put("username", username);
+
+        return chain.filter(exchange.mutate().request(modifiedRequest).build());
     }
 
     private Mono<Void> onError(ServerWebExchange exchange, String message, HttpStatus status) {
@@ -75,5 +88,10 @@ public class AuthenticationFilter implements GatewayFilter {
         ServerHttpResponse response = exchange.getResponse();
         response.setStatusCode(status);
         return response.setComplete();
+    }
+
+    @Override
+    public int getOrder() {
+        return -1;
     }
 } 

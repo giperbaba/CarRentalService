@@ -1,16 +1,24 @@
 package com.carapp.service;
 
-import com.carapp.dto.CarDto;
-import com.carapp.enums.CarStatus;
+import com.carapp.dto.CarCreateRequest;
+import com.carapp.dto.CarResponse;
+import com.carapp.dto.CarStatusUpdateRequest;
+import com.carapp.dto.CarUpdateRequest;
+import jakarta.validation.Valid;
 
 import java.util.List;
 import java.util.UUID;
 
 public interface ICarService {
-    List<CarDto> getAllCars();
-    List<CarDto> getAvailableCars();
-    CarDto getCarById(UUID id);
-    CarDto createCar(CarDto carDto);
-    CarDto updateCar(UUID id, CarDto carDto);
-    CarDto updateCarStatus(UUID id, CarStatus status);
+    CarResponse createCar(@Valid CarCreateRequest request);
+
+    CarResponse getCar(UUID id);
+
+    List<CarResponse> getAllCars();
+
+    List<CarResponse> getAvailableCars();
+
+    CarResponse updateCar(UUID id, @Valid CarUpdateRequest request);
+
+    CarResponse updateCarStatus(UUID id, @Valid CarStatusUpdateRequest request);
 } 

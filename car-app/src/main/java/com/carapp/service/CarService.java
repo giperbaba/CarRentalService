@@ -1,76 +1,125 @@
 package com.carapp.service;
 
-import com.carapp.dto.CarDto;
+import com.carapp.constant.ValidationConstants;
+import com.carapp.dto.CarCreateRequest;
+import com.carapp.dto.CarResponse;
+import com.carapp.dto.CarStatusUpdateRequest;
+import com.carapp.dto.CarUpdateRequest;
 import com.carapp.entity.Car;
 import com.carapp.enums.CarStatus;
+import com.carapp.exception.CarNotAvailableException;
+import com.carapp.exception.CarNotFoundException;
+import com.carapp.exception.InvalidCarOperationException;
 import com.carapp.mapper.CarMapper;
 import com.carapp.repository.CarRepository;
-import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.validation.annotation.Validated;
 
 import java.util.List;
 import java.util.UUID;
+import java.util.stream.Collectors;
 
+@Slf4j
 @Service
+@Validated
 @RequiredArgsConstructor
 public class CarService implements ICarService {
-
     private final CarRepository carRepository;
     private final CarMapper carMapper;
 
     @Override
+    @Transactional
+    public CarResponse createCar(CarCreateRequest request) {
+        validateLicensePlateUniqueness(request.getLicensePlate());
+        Car car = carMapper.toEntity(request);
+        car.setStatus(CarStatus.AVAILABLE);
+        Car savedCar = carRepository.save(car);
+        log.info("Created new car with ID: {}", savedCar.getId());
+        return carMapper.toResponse(savedCar);
+    }
+
+    @Override
     @Transactional(readOnly = true)
-    public List<CarDto> getAllCars() {
+    public CarResponse getCar(UUID id) {
+        Car car = findCarById(id);
+        
+        // Если пользователь не админ, он может получить информацию только о доступных машинах
+        if (!isCurrentUserAdmin() && car.getStatus() != CarStatus.AVAILABLE) {
+            throw new InvalidCarOperationException(ValidationConstants.CAR_NOT_AVAILABLE);
+        }
+        
+        return carMapper.toResponse(car);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<CarResponse> getAllCars() {
         return carRepository.findAll().stream()
-                .map(carMapper::toDto)
-                .toList();
+                .map(carMapper::toResponse)
+                .collect(Collectors.toList());
     }
 
     @Override
     @Transactional(readOnly = true)
-    public List<CarDto> getAvailableCars() {
+    public List<CarResponse> getAvailableCars() {
         return carRepository.findByStatus(CarStatus.AVAILABLE).stream()
-                .map(carMapper::toDto)
-                .toList();
+                .map(carMapper::toResponse)
+                .collect(Collectors.toList());
     }
 
     @Override
-    @Transactional(readOnly = true)
-    public CarDto getCarById(UUID id) {
+    @Transactional
+    public CarResponse updateCar(UUID id, CarUpdateRequest request) {
+        Car car = findCarById(id);
+        
+        if (request.getLicensePlate() != null && 
+            !request.getLicensePlate().equals(car.getLicensePlate())) {
+            validateLicensePlateUniqueness(request.getLicensePlate());
+        }
+
+        carMapper.updateCarFromDto(request, car);
+        Car updatedCar = carRepository.save(car);
+        log.info("Updated car with ID: {}", id);
+        return carMapper.toResponse(updatedCar);
+    }
+
+    @Override
+    @Transactional
+    public CarResponse updateCarStatus(UUID id, CarStatusUpdateRequest request) {
+        Car car = findCarById(id);
+        
+        if (request.getStatus() != CarStatus.AVAILABLE && request.getStatus() != CarStatus.MAINTENANCE) {
+            throw new InvalidCarOperationException(ValidationConstants.INVALID_STATUS_UPDATE);
+        }
+
+        if (car.getStatus() != CarStatus.AVAILABLE && car.getStatus() != CarStatus.MAINTENANCE) {
+            throw new InvalidCarOperationException(ValidationConstants.CAR_STATUS_CHANGE_NOT_ALLOWED);
+        }
+
+        car.setStatus(request.getStatus());
+        Car updatedCar = carRepository.save(car);
+        log.info("Car with ID {} status has been updated to {}", id, request.getStatus());
+        return carMapper.toResponse(updatedCar);
+    }
+
+    private Car findCarById(UUID id) {
         return carRepository.findById(id)
-                .map(carMapper::toDto)
-                .orElseThrow(() -> new EntityNotFoundException("Car not found with id: " + id));
+                .orElseThrow(() -> new CarNotFoundException(ValidationConstants.CAR_NOT_FOUND));
     }
 
-    @Override
-    @Transactional
-    public CarDto createCar(CarDto carDto) {
-        Car car = carMapper.toEntity(carDto);
-        car = carRepository.save(car);
-        return carMapper.toDto(car);
+    private void validateLicensePlateUniqueness(String licensePlate) {
+        if (carRepository.existsByLicensePlate(licensePlate)) {
+            throw new InvalidCarOperationException(ValidationConstants.LICENSE_PLATE_EXISTS);
+        }
     }
 
-    @Override
-    @Transactional
-    public CarDto updateCar(UUID id, CarDto carDto) {
-        Car car = carRepository.findById(id)
-                .orElseThrow(() -> new EntityNotFoundException("Car not found with id: " + id));
-        
-        carMapper.updateEntity(carDto, car);
-        car = carRepository.save(car);
-        return carMapper.toDto(car);
-    }
-
-    @Override
-    @Transactional
-    public CarDto updateCarStatus(UUID id, CarStatus status) {
-        Car car = carRepository.findById(id)
-                .orElseThrow(() -> new EntityNotFoundException("Car not found with id: " + id));
-        
-        car.setStatus(status);
-        car = carRepository.save(car);
-        return carMapper.toDto(car);
+    private boolean isCurrentUserAdmin() {
+        return SecurityContextHolder.getContext().getAuthentication()
+                .getAuthorities().stream()
+                .anyMatch(a -> a.getAuthority().equals("ROLE_ADMIN"));
     }
 } 
