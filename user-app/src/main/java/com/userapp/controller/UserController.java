@@ -4,6 +4,7 @@ import com.userapp.dto.request.AuthRequestDto;
 import com.userapp.dto.request.RefreshTokenRequestDto;
 import com.userapp.dto.request.UserRegisterRequestDto;
 import com.userapp.dto.request.UserUpdateRequestDto;
+import com.userapp.dto.response.UserResponseDto;
 import com.userapp.service.IUserService;
 import com.userapp.service.UserService;
 import jakarta.servlet.http.HttpServletRequest;
@@ -12,6 +13,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.List;
 import java.util.UUID;
 
 @RestController
@@ -60,6 +62,12 @@ public class UserController {
     @PreAuthorize("isAuthenticated()")
     public ResponseEntity<?> updateMyProfile(@Valid @RequestBody UserUpdateRequestDto updateRequest) {
         return userService.updateMyProfile(updateRequest);
+    }
+
+    @GetMapping("/all")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<List<UserResponseDto>> getAllUsers() {
+        return ResponseEntity.ok(userService.getAllUsers());
     }
 
     @DeleteMapping("/profile/{userId}")

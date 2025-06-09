@@ -34,6 +34,7 @@ public class GlobalExceptionHandler {
         return createErrorResponse(ex, HttpStatus.BAD_REQUEST, request);
     }
 
+
     @ExceptionHandler(MethodArgumentNotValidException.class)
     public ResponseEntity<ErrorResponse> handleMethodArgumentNotValidException(MethodArgumentNotValidException ex, WebRequest request) {
         List<ErrorResponse.ValidationError> validationErrors = ex.getBindingResult()

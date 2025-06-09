@@ -4,10 +4,12 @@ import com.userapp.dto.request.AuthRequestDto;
 import com.userapp.dto.request.RefreshTokenRequestDto;
 import com.userapp.dto.request.UserRegisterRequestDto;
 import com.userapp.dto.request.UserUpdateRequestDto;
+import com.userapp.dto.response.UserResponseDto;
 import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.http.ResponseEntity;
 
-import java.util.UUID; // Убедитесь, что это импортировано, если ваш User ID - UUID
+import java.util.List;
+import java.util.UUID; 
 
 public interface IUserService {
 
@@ -26,4 +28,6 @@ public interface IUserService {
     ResponseEntity<?> updateMyProfile(UserUpdateRequestDto updateRequest);
 
     ResponseEntity<?> deactivateUser(UUID userId);
+
+    List<UserResponseDto> getAllUsers();
 }

@@ -2,6 +2,7 @@ package com.userapp.dto.request;
 
 import com.fasterxml.jackson.annotation.JsonFormat;
 import com.userapp.enums.Gender;
+import com.userapp.validation.BirthDate;
 import jakarta.validation.constraints.*;
 
 import java.time.LocalDate;
@@ -17,7 +18,8 @@ public record UserRegisterRequestDto(
         String surname,
 
         @NotNull(message = "Birthday is required")
-        @JsonFormat(pattern = "yyyy-MM-dd")
+        @JsonFormat(pattern = "dd-MM-yyyy")
+        @BirthDate
         LocalDate birthday,
 
         @NotBlank(message = "Email is required")

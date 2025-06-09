@@ -2,6 +2,8 @@ package com.userapp.filter;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.userapp.dto.response.ErrorResponseDto;
+import com.userapp.entity.User;
+import com.userapp.exception.DeactivatedUserException;
 import com.userapp.service.CustomUserDetailsService;
 import com.userapp.util.JwtUtil;
 import io.jsonwebtoken.ExpiredJwtException;
@@ -32,10 +34,13 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
     private final JwtUtil jwtUtil;
     private final CustomUserDetailsService customUserDetailsService;
+    private final ObjectMapper objectMapper;
 
-    public JwtAuthenticationFilter(JwtUtil jwtUtil, CustomUserDetailsService customUserDetailsService) {
+    public JwtAuthenticationFilter(JwtUtil jwtUtil, CustomUserDetailsService customUserDetailsService,
+                                 ObjectMapper objectMapper) {
         this.jwtUtil = jwtUtil;
         this.customUserDetailsService = customUserDetailsService;
+        this.objectMapper = objectMapper;
     }
 
     @Override
@@ -47,12 +52,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         String path = request.getRequestURI();
         String method = request.getMethod();
 
-        if (
-                ("/api/user/login".equals(path) && "POST".equalsIgnoreCase(method)) ||
-                        ("/api/user/register".equals(path) && "POST".equalsIgnoreCase(method)) ||
-                        ("/api/user/refresh".equals(path) && "POST".equalsIgnoreCase(method)) ||
-                        path.startsWith("/error")
-        ) {
+        if (isPublicEndpoint(path, method)) {
             filterChain.doFilter(request, response);
             return;
         }
@@ -68,6 +68,11 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                 String userEmail = jwtUtil.getEmailFromToken(jwt);
                 UserDetails userDetails = customUserDetailsService.loadUserByUsername(userEmail);
 
+                // Проверяем статус пользователя
+                if (userDetails instanceof User user && !user.isActive()) {
+                    throw new DeactivatedUserException(USER_ACCOUNT_DEACTIVATED);
+                }
+
                 UsernamePasswordAuthenticationToken authentication = new UsernamePasswordAuthenticationToken(
                         userDetails, null, userDetails.getAuthorities()
                 );
@@ -82,6 +87,8 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             sendErrorResponse(response, HttpStatus.UNAUTHORIZED, JWT_TOKEN_EXPIRED);
         } catch (UnsupportedJwtException | MalformedJwtException | SecurityException e) {
             sendErrorResponse(response, HttpStatus.UNAUTHORIZED, JWT_TOKEN_INVALID);
+        } catch (DeactivatedUserException e) {
+            sendErrorResponse(response, HttpStatus.UNAUTHORIZED, e.getMessage());
         } catch (JwtException e) {
             sendErrorResponse(response, HttpStatus.UNAUTHORIZED, e.getMessage());
         } catch (Exception e) {
@@ -89,14 +96,11 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         }
     }
 
-    private void sendErrorResponse(HttpServletResponse response, HttpStatus status, String message) throws IOException {
-        response.setStatus(status.value());
-        response.setContentType(MediaType.APPLICATION_JSON_VALUE);
-        ErrorResponseDto errorResponse = new ErrorResponseDto(message);
-
-        OutputStream out = response.getOutputStream();
-        new ObjectMapper().writeValue(out, errorResponse);
-        out.flush();
+    private boolean isPublicEndpoint(String path, String method) {
+        return ("/api/user/login".equals(path) && "POST".equalsIgnoreCase(method)) ||
+               ("/api/user/register".equals(path) && "POST".equalsIgnoreCase(method)) ||
+               ("/api/user/refresh".equals(path) && "POST".equalsIgnoreCase(method)) ||
+               path.startsWith("/error");
     }
 
     private String getJwtFromRequest(HttpServletRequest request) {
@@ -105,5 +109,15 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             return bearerToken.substring(7);
         }
         return null;
+    }
+
+    private void sendErrorResponse(HttpServletResponse response, HttpStatus status, String message) throws IOException {
+        response.setStatus(status.value());
+        response.setContentType(MediaType.APPLICATION_JSON_VALUE);
+        ErrorResponseDto errorResponse = new ErrorResponseDto(message);
+
+        OutputStream out = response.getOutputStream();
+        objectMapper.writeValue(out, errorResponse);
+        out.flush();
     }
 }

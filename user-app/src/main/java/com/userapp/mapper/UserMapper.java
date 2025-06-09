@@ -6,46 +6,62 @@ import com.userapp.dto.response.UserResponseDto;
 import com.userapp.entity.Role;
 import com.userapp.entity.User;
 import com.userapp.enums.UserRole;
-import org.mapstruct.BeanMapping;
-import org.mapstruct.Mapper;
-import org.mapstruct.Mapping;
-import org.mapstruct.MappingTarget;
-import org.mapstruct.NullValuePropertyMappingStrategy;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 
 import java.util.Set;
-import java.util.stream.Collectors;
 
-@Mapper(componentModel = "spring")
+@Component
+public class UserMapper {
+    private static final Logger logger = LoggerFactory.getLogger(UserMapper.class);
 
-public interface UserMapper {
+    public User registerRequestToUser(UserRegisterRequestDto registerRequest) {
+        logger.debug("Mapping UserRegisterRequestDto to User. Email: {}, Birthday: {}", 
+                    registerRequest.email(), registerRequest.birthday());
 
-    @Mapping(target = "id", ignore = true)
-    @Mapping(target = "roles", expression = "java(getDefaultRoles())")
-    @Mapping(target = "active", constant = "true")
-    @Mapping(target = "authorities", ignore = true)
-    User registerRequestToUser(UserRegisterRequestDto registerRequest);
+        User user = new User();
+        user.setName(registerRequest.name());
+        user.setSurname(registerRequest.surname());
+        user.setBirthday(registerRequest.birthday());
+        user.setEmail(registerRequest.email());
+        user.setPassword(registerRequest.password());
+        user.setGender(registerRequest.gender());
+        user.setPhone(registerRequest.phone());
+        user.setActive(true);
+        user.setRoles(getDefaultRoles());
 
-    UserResponseDto userToUserResponseDto(User user);
+        logger.debug("Successfully mapped User entity. Email: {}, Birthday: {}", 
+                    user.getEmail(), user.getBirthday());
+        return user;
+    }
 
-    @BeanMapping(nullValuePropertyMappingStrategy = NullValuePropertyMappingStrategy.IGNORE)
-    @Mapping(target = "id", ignore = true)
-    @Mapping(target = "password", ignore = true)
-    @Mapping(target = "roles", ignore = true)
-    @Mapping(target = "authorities", ignore = true)
-    @Mapping(target = "active", ignore = true)
-    void updateUserFromDto(UserUpdateRequestDto dto, @MappingTarget User user);
+    public UserResponseDto userToUserResponseDto(User user) {
+        return new UserResponseDto(
+            user.getId(),
+            user.getEmail(),
+            user.getPhone(),
+            user.getName(),
+            user.getSurname(),
+            user.isActive()
+        );
+    }
 
+    public void updateUserFromDto(UserUpdateRequestDto dto, User user) {
+        if (dto.name() != null) {
+            user.setName(dto.name());
+        }
+        if (dto.surname() != null) {
+            user.setSurname(dto.surname());
+        }
+        if (dto.phone() != null) {
+            user.setPhone(dto.phone());
+        }
+    }
 
-    default Set<Role> getDefaultRoles() {
+    private Set<Role> getDefaultRoles() {
         Role userRole = new Role();
         userRole.setRole(UserRole.ROLE_USER);
         return Set.of(userRole);
-    }
-
-    default Set<UserRole> mapRolesToStrings(Set<Role> roles) {
-        return roles.stream()
-                .map(Role::getRole)
-                .collect(Collectors.toSet());
     }
 }

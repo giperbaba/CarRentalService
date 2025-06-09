@@ -7,6 +7,7 @@ import com.userapp.dto.response.AuthResponseDto;
 import com.userapp.dto.response.ErrorResponseDto;
 import com.userapp.dto.request.AuthRequestDto;
 import com.userapp.dto.request.RefreshTokenRequestDto;
+import com.userapp.dto.response.UserResponseDto;
 import com.userapp.entity.RefreshToken;
 import com.userapp.entity.Role;
 import com.userapp.entity.User;
@@ -18,6 +19,8 @@ import com.userapp.repository.IRoleRepository;
 import com.userapp.repository.IUserRepository;
 import com.userapp.util.JwtUtil;
 import jakarta.servlet.http.HttpServletRequest;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -26,6 +29,7 @@ import org.springframework.security.authentication.UsernamePasswordAuthenticatio
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -36,6 +40,7 @@ import static com.userapp.constants.ConstantStrings.*;
 
 @Service
 public class UserService implements IUserService {
+    private static final Logger logger = LoggerFactory.getLogger(UserService.class);
 
     private final AuthenticationManager authenticationManager;
     private final JwtUtil jwtUtil;
@@ -63,35 +68,51 @@ public class UserService implements IUserService {
         try {
             Authentication authentication = authenticateUser(authRequest.login(), authRequest.password());
             User user = (User) authentication.getPrincipal();
-
+            
             invalidateUserRefreshTokens(user);
-
             AuthResponseDto authResponse = generateAndSaveTokens(authentication, user);
-
             return ResponseEntity.ok(authResponse);
+        } catch (DeactivatedUserException e) {
+            return buildErrorResponse(HttpStatus.FORBIDDEN, USER_ACCOUNT_DEACTIVATED);
+        } catch (BadCredentialsException e) {
+            return buildErrorResponse(HttpStatus.UNAUTHORIZED, INVALID_CREDENTIALS_OR_LOGIN_ERROR);
         } catch (Exception ex) {
-            return buildErrorResponse(HttpStatus.BAD_REQUEST, INVALID_CREDENTIALS_OR_LOGIN_ERROR);
+            return buildErrorResponse(HttpStatus.UNAUTHORIZED, INVALID_CREDENTIALS_OR_LOGIN_ERROR);
         }
     }
 
     public ResponseEntity<?> register(UserRegisterRequestDto registerRequest) {
         try {
+            logger.info("Starting registration process for email: {}", registerRequest.email());
+
             if (userRepository.findByEmail(registerRequest.email()).isPresent()) {
+                logger.warn("Registration failed: email already exists - {}", registerRequest.email());
                 return buildErrorResponse(HttpStatus.CONFLICT, USER_ALREADY_EXISTS);
             }
 
+            logger.debug("Creating new user from registration request");
             User newUser = createUserFromRegistration(registerRequest);
+
+            logger.debug("Assigning default role to new user");
             assignDefaultRole(newUser);
+
+            logger.debug("Saving new user to database");
             userRepository.save(newUser);
 
+            logger.debug("Authenticating new user");
             Authentication authentication = authenticateUser(newUser.getEmail(), registerRequest.password());
+            
+            logger.debug("Generating tokens for new user");
             AuthResponseDto authResponse = generateAndSaveTokens(authentication, newUser);
 
+            logger.info("Successfully registered new user with email: {}", registerRequest.email());
             return ResponseEntity.ok(authResponse);
         } catch (IllegalStateException ex) {
+            logger.error("Registration failed due to missing default role", ex);
             return buildErrorResponse(HttpStatus.INTERNAL_SERVER_ERROR, DEFAULT_ROLE_NOT_FOUND);
         } catch (Exception ex) {
-            return buildErrorResponse(HttpStatus.BAD_REQUEST, REGISTRATION_FAILED);
+            logger.error("Registration failed with unexpected error", ex);
+            return buildErrorResponse(HttpStatus.BAD_REQUEST, REGISTRATION_FAILED + ": " + ex.getMessage());
         }
     }
 
@@ -143,7 +164,6 @@ public class UserService implements IUserService {
         }
     }
 
-
     @Transactional
     public ResponseEntity<?> updateMyProfile(UserUpdateRequestDto updateRequest) {
         try {
@@ -174,14 +194,26 @@ public class UserService implements IUserService {
         }
     }
 
+    @Override
+    public List<UserResponseDto> getAllUsers() {
+        return userRepository.findAll().stream()
+                .map(userMapper::userToUserResponseDto)
+                .toList();
+    }
 
     private ResponseEntity<ErrorResponseDto> buildErrorResponse(HttpStatus status, String message) {
         return ResponseEntity.status(status).body(new ErrorResponseDto(message));
     }
 
     private Authentication authenticateUser(String login, String password) {
-        // BadCredentialsException (если неверные учетные данные) будет перехвачено вызывающим методом
-        return authenticationManager.authenticate(new UsernamePasswordAuthenticationToken(login, password));
+        Authentication authentication = authenticationManager.authenticate(
+                new UsernamePasswordAuthenticationToken(login, password));
+        
+
+        User user = (User) authentication.getPrincipal();
+        checkUserActive(user);
+        
+        return authentication;
     }
 
     private void invalidateUserRefreshTokens(User user) {
@@ -259,7 +291,6 @@ public class UserService implements IUserService {
         userMapper.updateUserFromDto(updateRequest, user);
     }
 
-    //TODO: Если пользователь деактивирован что он не может делать?
     private void checkUserActive(User user) {
         if (!user.isActive()) {
             throw new DeactivatedUserException(USER_ACCOUNT_DEACTIVATED);

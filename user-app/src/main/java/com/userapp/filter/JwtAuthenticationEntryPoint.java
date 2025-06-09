@@ -35,19 +35,17 @@ public class JwtAuthenticationEntryPoint implements AuthenticationEntryPoint {
         HttpStatus status = HttpStatus.UNAUTHORIZED;
         String errorMessage;
 
-        if (authException instanceof BadCredentialsException) {
-            errorMessage = INVALID_CREDENTIALS_OR_LOGIN_ERROR;
-            status = HttpStatus.UNAUTHORIZED;
-        } else if (authException.getCause() instanceof ExpiredJwtException) {
-            errorMessage = JWT_TOKEN_EXPIRED;
-            status = HttpStatus.UNAUTHORIZED;
-        }
-        else if (authException.getCause() instanceof DeactivatedUserException) {
+        if (authException.getCause() instanceof DeactivatedUserException) {
             errorMessage = USER_ACCOUNT_DEACTIVATED;
             status = HttpStatus.FORBIDDEN;
-        }
-        else {
-            errorMessage = authException.getMessage() != null ? authException.getMessage() : "Authentication failed due to an unknown reason.";
+        } else if (authException instanceof BadCredentialsException) {
+            errorMessage = INVALID_CREDENTIALS_OR_LOGIN_ERROR;
+        } else if (authException.getCause() instanceof ExpiredJwtException) {
+            errorMessage = JWT_TOKEN_EXPIRED;
+        } else {
+            errorMessage = authException.getMessage() != null ? 
+                authException.getMessage() : 
+                "Authentication failed due to an unknown reason.";
         }
 
         response.setStatus(status.value());
