@@ -2,8 +2,9 @@ package com.carapp.service;
 
 import com.carapp.dto.CarCreateRequest;
 import com.carapp.dto.CarResponse;
-import com.carapp.dto.CarStatusUpdateRequest;
 import com.carapp.dto.CarUpdateRequest;
+import com.carapp.dto.CarMaintenanceStatusRequest;
+import com.carapp.dto.CarBookingStatusRequest;
 import jakarta.validation.Valid;
 
 import java.util.List;
@@ -20,5 +21,7 @@ public interface ICarService {
 
     CarResponse updateCar(UUID id, @Valid CarUpdateRequest request);
 
-    CarResponse updateCarStatus(UUID id, @Valid CarStatusUpdateRequest request);
+    CarResponse updateMaintenanceStatus(UUID id, CarMaintenanceStatusRequest request);
+
+    CarResponse updateBookingStatus(UUID id, CarBookingStatusRequest request);
 } 

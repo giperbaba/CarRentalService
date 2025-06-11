@@ -61,14 +61,12 @@ public class TokenValidationFilter extends OncePerRequestFilter {
                 objectMapper.writeValue(response.getOutputStream(), errorResponse);
                 return;
             }
-            
-            // Log the current authentication after the token validation
+
             logger.debug("Current authentication: {}", SecurityContextHolder.getContext().getAuthentication());
         }
         
         filterChain.doFilter(request, response);
-        
-        // Log the final authentication state after the filter chain
+
         logger.debug("Final authentication state: {}", SecurityContextHolder.getContext().getAuthentication());
     }
 } 

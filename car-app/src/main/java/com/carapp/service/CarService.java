@@ -3,7 +3,8 @@ package com.carapp.service;
 import com.carapp.constant.ValidationConstants;
 import com.carapp.dto.CarCreateRequest;
 import com.carapp.dto.CarResponse;
-import com.carapp.dto.CarStatusUpdateRequest;
+import com.carapp.dto.CarMaintenanceStatusRequest;
+import com.carapp.dto.CarBookingStatusRequest;
 import com.carapp.dto.CarUpdateRequest;
 import com.carapp.entity.Car;
 import com.carapp.enums.CarStatus;
@@ -47,7 +48,7 @@ public class CarService implements ICarService {
     public CarResponse getCar(UUID id) {
         Car car = findCarById(id);
         
-        // Если пользователь не админ, он может получить информацию только о доступных машинах
+        //если пользователь не админ, он может получить информацию только о доступных машинах
         if (!isCurrentUserAdmin() && car.getStatus() != CarStatus.AVAILABLE) {
             throw new InvalidCarOperationException(ValidationConstants.CAR_NOT_AVAILABLE);
         }
@@ -89,20 +90,41 @@ public class CarService implements ICarService {
 
     @Override
     @Transactional
-    public CarResponse updateCarStatus(UUID id, CarStatusUpdateRequest request) {
+    public CarResponse updateMaintenanceStatus(UUID id, CarMaintenanceStatusRequest request) {
         Car car = findCarById(id);
         
-        if (request.getStatus() != CarStatus.AVAILABLE && request.getStatus() != CarStatus.MAINTENANCE) {
-            throw new InvalidCarOperationException(ValidationConstants.INVALID_STATUS_UPDATE);
+        if (!request.isValidStatus()) {
+            throw new InvalidCarOperationException("Invalid maintenance status update. Only MAINTENANCE and AVAILABLE statuses are allowed.");
         }
 
-        if (car.getStatus() != CarStatus.AVAILABLE && car.getStatus() != CarStatus.MAINTENANCE) {
-            throw new InvalidCarOperationException(ValidationConstants.CAR_STATUS_CHANGE_NOT_ALLOWED);
+        // Проверяем, что текущий статус позволяет выполнить обновление
+        if (car.getStatus() != CarStatus.MAINTENANCE && car.getStatus() != CarStatus.AVAILABLE) {
+            throw new InvalidCarOperationException("Car status change not allowed. Current status must be either MAINTENANCE or AVAILABLE.");
         }
 
         car.setStatus(request.getStatus());
         Car updatedCar = carRepository.save(car);
-        log.info("Car with ID {} status has been updated to {}", id, request.getStatus());
+        log.info("Car with ID {} maintenance status has been updated to {}", id, request.getStatus());
+        return carMapper.toResponse(updatedCar);
+    }
+
+    @Override
+    @Transactional
+    public CarResponse updateBookingStatus(UUID id, CarBookingStatusRequest request) {
+        Car car = findCarById(id);
+        
+        if (!request.isValidStatus()) {
+            throw new InvalidCarOperationException("Invalid booking status update. Only BOOKED, RENTED and AVAILABLE statuses are allowed.");
+        }
+
+        // Проверяем, что текущий статус позволяет выполнить обновление
+        if (car.getStatus() == CarStatus.MAINTENANCE || car.getStatus() == CarStatus.UNAVAILABLE) {
+            throw new InvalidCarOperationException("Car status change not allowed. Car is under maintenance or unavailable.");
+        }
+
+        car.setStatus(request.getStatus());
+        Car updatedCar = carRepository.save(car);
+        log.info("Car with ID {} booking status has been updated to {}", id, request.getStatus());
         return carMapper.toResponse(updatedCar);
     }
 

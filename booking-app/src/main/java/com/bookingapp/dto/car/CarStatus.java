@@ -1,4 +1,4 @@
-package com.carapp.enums;
+package com.bookingapp.dto.car;
 
 public enum CarStatus {
     AVAILABLE,    // доступен 

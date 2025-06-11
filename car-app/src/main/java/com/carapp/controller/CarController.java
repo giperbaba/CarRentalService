@@ -1,13 +1,9 @@
 package com.carapp.controller;
 
-import com.carapp.dto.CarCreateRequest;
-import com.carapp.dto.CarResponse;
-import com.carapp.dto.CarStatusUpdateRequest;
-import com.carapp.dto.CarUpdateRequest;
+import com.carapp.dto.*;
 import com.carapp.service.ICarService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
-import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
@@ -16,37 +12,33 @@ import java.util.List;
 import java.util.UUID;
 
 @RestController
-@RequestMapping("/api/cars")
+@RequestMapping("/api/v1/cars")
 @RequiredArgsConstructor
 public class CarController {
     private final ICarService carService;
 
-    @PostMapping("/create")
+    @PostMapping
     @PreAuthorize("hasRole('ADMIN')")
-    public ResponseEntity<CarResponse> createCar(
-            @Valid @RequestBody CarCreateRequest request) {
-        return new ResponseEntity<>(carService.createCar(request), HttpStatus.CREATED);
+    public ResponseEntity<CarResponse> createCar(@Valid @RequestBody CarCreateRequest request) {
+        return ResponseEntity.ok(carService.createCar(request));
     }
 
     @GetMapping("/{id}")
-    @PreAuthorize("hasAnyRole('USER', 'ADMIN')")
     public ResponseEntity<CarResponse> getCar(@PathVariable UUID id) {
         return ResponseEntity.ok(carService.getCar(id));
     }
 
     @GetMapping
-    @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<List<CarResponse>> getAllCars() {
         return ResponseEntity.ok(carService.getAllCars());
     }
 
     @GetMapping("/available")
-    @PreAuthorize("hasAnyRole('USER', 'ADMIN')")
     public ResponseEntity<List<CarResponse>> getAvailableCars() {
         return ResponseEntity.ok(carService.getAvailableCars());
     }
 
-    @PutMapping("/update/{id}")
+    @PutMapping("/{id}")
     @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<CarResponse> updateCar(
             @PathVariable UUID id,
@@ -54,11 +46,18 @@ public class CarController {
         return ResponseEntity.ok(carService.updateCar(id, request));
     }
 
-    @PutMapping("/{id}/status")
+    @PutMapping("/{id}/maintenance-status")
     @PreAuthorize("hasRole('ADMIN')")
-    public ResponseEntity<CarResponse> updateCarStatus(
+    public ResponseEntity<CarResponse> updateMaintenanceStatus(
             @PathVariable UUID id,
-            @Valid @RequestBody CarStatusUpdateRequest request) {
-        return ResponseEntity.ok(carService.updateCarStatus(id, request));
+            @Valid @RequestBody CarMaintenanceStatusRequest request) {
+        return ResponseEntity.ok(carService.updateMaintenanceStatus(id, request));
+    }
+
+    @PutMapping("/{id}/booking-status")
+    public ResponseEntity<CarResponse> updateBookingStatus(
+            @PathVariable UUID id,
+            @Valid @RequestBody CarBookingStatusRequest request) {
+        return ResponseEntity.ok(carService.updateBookingStatus(id, request));
     }
 } 
