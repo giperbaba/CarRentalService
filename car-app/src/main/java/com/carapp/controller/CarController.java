@@ -12,12 +12,12 @@ import java.util.List;
 import java.util.UUID;
 
 @RestController
-@RequestMapping("/api/v1/cars")
+@RequestMapping("/api/cars")
 @RequiredArgsConstructor
 public class CarController {
     private final ICarService carService;
 
-    @PostMapping
+    @PostMapping("/create")
     @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<CarResponse> createCar(@Valid @RequestBody CarCreateRequest request) {
         return ResponseEntity.ok(carService.createCar(request));
@@ -26,6 +26,11 @@ public class CarController {
     @GetMapping("/{id}")
     public ResponseEntity<CarResponse> getCar(@PathVariable UUID id) {
         return ResponseEntity.ok(carService.getCar(id));
+    }
+
+    @GetMapping("/{id}/available")
+    public ResponseEntity<Boolean> isCarAvailable(@PathVariable UUID id) {
+        return ResponseEntity.ok(carService.isCarAvailable(id));
     }
 
     @GetMapping

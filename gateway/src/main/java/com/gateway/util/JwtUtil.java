@@ -50,5 +50,9 @@ public class JwtUtil {
         return claims.get("login", String.class);
     }
 
+    public String getUserIdFromToken(String token) {
+        Claims claims = getAllClaimsFromToken(token);
+        return claims.getSubject();
+    }
 
 } 

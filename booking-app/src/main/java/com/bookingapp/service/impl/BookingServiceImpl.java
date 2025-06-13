@@ -2,19 +2,22 @@ package com.bookingapp.service.impl;
 
 import com.bookingapp.client.CarServiceClient;
 import com.bookingapp.client.PaymentServiceClient;
+import com.bookingapp.constant.BookingConstants;
 import com.bookingapp.domain.Booking;
 import com.bookingapp.domain.enums.BookingStatus;
 import com.bookingapp.dto.BookingRequestDto;
 import com.bookingapp.dto.BookingResponseDto;
 import com.bookingapp.dto.car.CarResponseDto;
-import com.bookingapp.dto.car.CarStatusUpdateRequestDto;
+import com.bookingapp.dto.car.CarBookingStatusRequest;
 import com.bookingapp.dto.payment.PaymentProcessRequestDto;
 import com.bookingapp.dto.payment.PaymentProcessResponseDto;
 import com.bookingapp.event.BookingEventType;
+import com.bookingapp.exception.BookingException;
 import com.bookingapp.mapper.BookingMapper;
 import com.bookingapp.repository.BookingRepository;
 import com.bookingapp.service.BookingEventService;
 import com.bookingapp.service.BookingService;
+import com.carapp.enums.CarStatus;
 import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -46,21 +49,23 @@ public class BookingServiceImpl implements BookingService {
 
     @Override
     @Transactional
-    public BookingResponseDto createBooking(Long userId, BookingRequestDto request) {
+    public BookingResponseDto createBooking(UUID userId, BookingRequestDto request) {
         validateBookingRequest(request);
 
-        CarResponseDto car = carServiceClient.getCar(request.getCarId());
-        if (!"AVAILABLE".equals(car.getStatus())) {
-            throw new IllegalStateException("Car is not available for booking");
+        if (!carServiceClient.isCarAvailable(request.getCarId())) {
+            throw new BookingException(BookingConstants.ErrorMessages.CAR_NOT_AVAILABLE);
         }
 
         Booking booking = bookingMapper.toEntity(request);
         booking.setUserId(userId);
         booking.setStatus(BookingStatus.PENDING_PAYMENT);
-        booking.setTotalPrice(calculatePrice(car.getPricePerDay(), request.getStartDate(), request.getEndDate()));
+        booking.setTotalPrice(calculatePrice(carServiceClient.getCar(request.getCarId()).getDailyRate(), 
+            request.getStartDate(), request.getEndDate()));
+        booking.setCreatedAt(LocalDateTime.now());
+        booking.setUpdatedAt(LocalDateTime.now());
 
-        carServiceClient.updateCarStatus(car.getId(), CarStatusUpdateRequestDto.builder()
-                .status("RESERVED")
+        carServiceClient.updateCarStatus(request.getCarId(), CarBookingStatusRequest.builder()
+                .status(CarStatus.BOOKED)
                 .build());
 
         Booking savedBooking = bookingRepository.save(booking);
@@ -69,7 +74,44 @@ public class BookingServiceImpl implements BookingService {
         return bookingMapper.toDto(savedBooking);
     }
 
-    @Override
+    private void validateBookingRequest(BookingRequestDto request) {
+        if (request.getEndDate().isBefore(request.getStartDate())) {
+            throw new BookingException(BookingConstants.ErrorMessages.END_DATE_BEFORE_START);
+        }
+
+        if (request.getStartDate().isBefore(LocalDateTime.now())) {
+            throw new BookingException(BookingConstants.ErrorMessages.START_DATE_IN_PAST);
+        }
+
+        List<Booking> overlappingBookings = bookingRepository.findOverlappingBookings(
+                request.getCarId(),
+                request.getStartDate(),
+                request.getEndDate(),
+                BookingStatus.CANCELLED,
+                BookingStatus.COMPLETED
+        );
+
+        if (!overlappingBookings.isEmpty()) {
+            throw new BookingException(BookingConstants.ErrorMessages.CAR_ALREADY_BOOKED);
+        }
+    }
+
+    private BigDecimal calculatePrice(BigDecimal pricePerDay, LocalDateTime startDate, LocalDateTime endDate) {
+        long days = ChronoUnit.DAYS.between(startDate, endDate);
+        if (days < 1) {
+            days = 1;
+        }
+        return pricePerDay.multiply(BigDecimal.valueOf(days));
+    }
+
+    private Booking findBookingById(Long id) {
+        return bookingRepository.findById(id)
+                .orElseThrow(() -> new EntityNotFoundException(
+                    String.format(BookingConstants.ErrorMessages.BOOKING_NOT_FOUND, id)
+                ));
+    }
+
+    /*@Override
     @Transactional
     public BookingResponseDto processPayment(Long id, String paymentMethod) {
         Booking booking = findBookingById(id);
@@ -93,7 +135,7 @@ public class BookingServiceImpl implements BookingService {
         } else {
             booking.setStatus(BookingStatus.PAYMENT_FAILED);
             carServiceClient.updateCarStatus(booking.getCarId(), CarStatusUpdateRequestDto.builder()
-                    .status("AVAILABLE")
+                    .status(CarStatus.AVAILABLE)
                     .build());
             bookingEventService.sendBookingEvent(booking, BookingEventType.PAYMENT_FAILED);
         }
@@ -138,7 +180,7 @@ public class BookingServiceImpl implements BookingService {
         booking.setActualEndDate(LocalDateTime.now());
 
         carServiceClient.updateCarStatus(booking.getCarId(), CarStatusUpdateRequestDto.builder()
-                .status("AVAILABLE")
+                .status(CarStatus.AVAILABLE)
                 .build());
         
         Booking savedBooking = bookingRepository.save(booking);
@@ -159,7 +201,7 @@ public class BookingServiceImpl implements BookingService {
         booking.setStatus(BookingStatus.CANCELLED);
 
         carServiceClient.updateCarStatus(booking.getCarId(), CarStatusUpdateRequestDto.builder()
-                .status("AVAILABLE")
+                .status(CarStatus.AVAILABLE)
                 .build());
 
         Booking savedBooking = bookingRepository.save(booking);
@@ -176,7 +218,7 @@ public class BookingServiceImpl implements BookingService {
             booking.setStatus(BookingStatus.CANCELLED);
 
             carServiceClient.updateCarStatus(booking.getCarId(), CarStatusUpdateRequestDto.builder()
-                    .status("AVAILABLE")
+                    .status(CarStatus.AVAILABLE)
                     .build());
 
             Booking savedBooking = bookingRepository.save(booking);
@@ -188,42 +230,7 @@ public class BookingServiceImpl implements BookingService {
     @Override
     @Transactional(readOnly = true)
     public List<BookingResponseDto> getCurrentUserRentals() {
-        String username = SecurityContextHolder.getContext().getAuthentication().getName();
-        return getUserBookings(Long.valueOf(username));
-    }
-
-    private void validateBookingRequest(BookingRequestDto request) {
-        if (request.getEndDate().isBefore(request.getStartDate())) {
-            throw new IllegalArgumentException("End date must be after start date");
-        }
-
-        if (request.getStartDate().isBefore(LocalDateTime.now())) {
-            throw new IllegalArgumentException("Start date must be in the future");
-        }
-
-        List<Booking> overlappingBookings = bookingRepository.findOverlappingBookings(
-                request.getCarId(),
-                request.getStartDate(),
-                request.getEndDate(),
-                BookingStatus.CANCELLED,
-                BookingStatus.COMPLETED
-        );
-
-        if (!overlappingBookings.isEmpty()) {
-            throw new IllegalStateException("Car is already booked for the selected period");
-        }
-    }
-
-    private BigDecimal calculatePrice(BigDecimal pricePerDay, LocalDateTime startDate, LocalDateTime endDate) {
-        long days = ChronoUnit.DAYS.between(startDate, endDate);
-        if (days < 1) {
-            days = 1; // Minimum one day
-        }
-        return pricePerDay.multiply(BigDecimal.valueOf(days));
-    }
-
-    private Booking findBookingById(Long id) {
-        return bookingRepository.findById(id)
-                .orElseThrow(() -> new EntityNotFoundException("Booking not found with id: " + id));
-    }
+        String userId = SecurityContextHolder.getContext().getAuthentication().getName();
+        return getUserBookings(userId);
+    }*/
 } 

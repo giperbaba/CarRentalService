@@ -6,27 +6,28 @@ import com.bookingapp.service.BookingService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
-import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.*;
 
+import jakarta.servlet.http.HttpServletRequest;
 import java.util.List;
 import java.util.UUID;
 
 @RestController
-@RequestMapping("/api/v1/bookings")
+@RequestMapping("/api/bookings")
 @RequiredArgsConstructor
 public class BookingController {
     private final BookingService bookingService;
 
     @PostMapping
     public ResponseEntity<BookingResponseDto> createBooking(
-            @AuthenticationPrincipal String userId,
-            @RequestBody BookingRequestDto request
+            @RequestBody BookingRequestDto request,
+            @RequestHeader("X-User-ID") String userId
     ) {
-        return ResponseEntity.ok(bookingService.createBooking(Long.valueOf(userId), request));
+        return ResponseEntity.ok(bookingService.createBooking(UUID.fromString(userId), request));
     }
 
-    @GetMapping("/{id}")
+    /*@GetMapping("/{id}")
     public ResponseEntity<BookingResponseDto> getBooking(@PathVariable Long id) {
         return ResponseEntity.ok(bookingService.getBooking(id));
     }
@@ -70,5 +71,5 @@ public class BookingController {
     @GetMapping("/health")
     public ResponseEntity<String> healthCheck() {
         return ResponseEntity.ok("Booking Service is up and running!");
-    }
+    }*/
 } 

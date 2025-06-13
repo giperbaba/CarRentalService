@@ -95,6 +95,7 @@ public class SecurityConfig {
                     objectMapper.writeValue(response.getOutputStream(), errorResponse);
                 }))
             .authorizeHttpRequests(auth -> auth
+                .requestMatchers("/error").permitAll()
                 .anyRequest().authenticated());
 
         return http.build();

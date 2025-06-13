@@ -7,6 +7,8 @@ import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpHeaders;
@@ -26,16 +28,12 @@ import java.util.Map;
 import java.util.stream.Collectors;
 
 @Component
+@RequiredArgsConstructor
+@Slf4j
 public class JwtAuthenticationFilter extends OncePerRequestFilter {
-    private static final Logger logger = LoggerFactory.getLogger(JwtAuthenticationFilter.class);
 
     private final TokenBlacklistService tokenBlacklistService;
     private final ObjectMapper objectMapper;
-
-    public JwtAuthenticationFilter(TokenBlacklistService tokenBlacklistService, ObjectMapper objectMapper) {
-        this.tokenBlacklistService = tokenBlacklistService;
-        this.objectMapper = objectMapper;
-    }
 
     @Override
     protected void doFilterInternal(
@@ -45,17 +43,13 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
     ) throws ServletException, IOException {
         String authHeader = request.getHeader(HttpHeaders.AUTHORIZATION);
         String rolesHeader = request.getHeader("X-Roles");
-        String usernameHeader = request.getHeader("X-Username");
+        String userIdHeader = request.getHeader("X-User-ID");
 
-        logger.debug(MessageConstants.PROCESSING_REQUEST, request.getMethod(), request.getRequestURI());
-        logger.debug(MessageConstants.ROLES_HEADER, rolesHeader);
-        logger.debug(MessageConstants.USERNAME_HEADER, usernameHeader);
 
         if (authHeader != null && authHeader.startsWith("Bearer ")) {
             String token = authHeader.substring(7);
 
             if (tokenBlacklistService.isBlacklisted(token)) {
-                logger.debug(MessageConstants.TOKEN_BLACKLISTED_DEBUG, token);
                 Map<String, Object> errorResponse = new HashMap<>();
                 errorResponse.put("timestamp", LocalDateTime.now());
                 errorResponse.put("status", HttpServletResponse.SC_UNAUTHORIZED);
@@ -69,25 +63,21 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                 return;
             }
 
-            if (rolesHeader != null && usernameHeader != null) {
+            if (rolesHeader != null && userIdHeader != null) {
                 List<SimpleGrantedAuthority> authorities = Arrays.stream(rolesHeader.split(","))
-                        .map(role -> new SimpleGrantedAuthority("ROLE_" + role.trim()))
+                        .map(role -> new SimpleGrantedAuthority(role.trim()))
                         .collect(Collectors.toList());
-
+                
                 var authentication = new UsernamePasswordAuthenticationToken(
-                        usernameHeader,
+                        userIdHeader,
                         null,
                         authorities
                 );
 
                 SecurityContextHolder.getContext().setAuthentication(authentication);
             }
-
-            logger.debug(MessageConstants.CURRENT_AUTH, SecurityContextHolder.getContext().getAuthentication());
         }
 
         filterChain.doFilter(request, response);
-
-        logger.debug(MessageConstants.FINAL_AUTH_STATE, SecurityContextHolder.getContext().getAuthentication());
     }
 } 

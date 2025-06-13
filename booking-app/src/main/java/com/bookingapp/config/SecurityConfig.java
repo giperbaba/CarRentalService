@@ -25,7 +25,7 @@ public class SecurityConfig {
         return http
                 .csrf(AbstractHttpConfigurer::disable)
                 .authorizeHttpRequests(auth -> auth
-                        .requestMatchers("/api/v1/bookings/health").permitAll()
+                        .requestMatchers("/api/bookings/health").permitAll()
                         .anyRequest().authenticated()
                 )
                 .sessionManagement(session -> session

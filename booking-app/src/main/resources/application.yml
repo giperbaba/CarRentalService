@@ -26,7 +26,9 @@ spring:
   flyway:
     enabled: true
     baseline-on-migrate: true
-    locations: classpath:db/migration
+    locations: classpath:db/migration/booking
+    table: flyway_schema_history_booking
+    schemas: public
 
   kafka:
     bootstrap-servers: localhost:9092
@@ -39,15 +41,21 @@ spring:
       booking-events: booking-events
       payment-events: payment-events
 
+eureka:
+  client:
+    enabled: false
+  instance:
+    enabled: false
+
 services:
   car-service:
-    url: http://localhost:8082
-  payment-service:
     url: http://localhost:8083
+  payment-service:
+    url: http://localhost:8084
 
 booking:
   payment:
-    timeout-minutes: 15
+    timeout-minutes: 5
 
 management:
   endpoints:
@@ -58,9 +66,3 @@ management:
 feign:
   circuitbreaker:
     enabled: true
-
-integration:
-  car-service:
-    url: http://localhost:8082
-  payment-service:
-    url: http://localhost:8083 

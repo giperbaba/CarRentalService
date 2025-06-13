@@ -4,18 +4,33 @@ server:
 spring:
   application:
     name: car-service
+  
   datasource:
     url: jdbc:postgresql://localhost:5432/car_app
     username: postgres
     password: postgres
     driver-class-name: org.postgresql.Driver
+
   jpa:
     hibernate:
-      ddl-auto: update
+      ddl-auto: validate
     show-sql: true
     properties:
       hibernate:
         format_sql: true
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+    database-platform: org.hibernate.dialect.PostgreSQLDialect
+  
+  sql:
+    init:
+      mode: always
+      platform: postgresql
+  
+  flyway:
+    enabled: true
+    baseline-on-migrate: true
+    locations: classpath:db/migration
+    create-schemas: true
   data:
     redis:
       host: localhost
@@ -24,12 +39,13 @@ spring:
 eureka:
   client:
     enabled: false
-    register-with-eureka: false
-    fetch-registry: false
+  instance:
+    prefer-ip-address: true
+
 
 logging:
   level:
     org.springframework.security: DEBUG
     org.springframework.web: DEBUG
     com.carapp: DEBUG
-    root: INFO 
+    root: INFO

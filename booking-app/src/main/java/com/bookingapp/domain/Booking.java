@@ -21,7 +21,7 @@ public class Booking {
     private Long id;
 
     @Column(name = "user_id", nullable = false)
-    private Long userId;
+    private UUID userId;
 
     @Column(name = "car_id", nullable = false)
     private UUID carId;

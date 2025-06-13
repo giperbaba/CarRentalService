@@ -10,7 +10,7 @@ import java.util.UUID;
 @Data
 public class BookingResponseDto {
     private Long id;
-    private Long userId;
+    private UUID userId;
     private UUID carId;
     private Long paymentId;
     private BookingStatus status;

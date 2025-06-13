@@ -1,13 +1,14 @@
-package com.bookingapp.dto.booking;
+package com.bookingapp.dto.car;
 
-import com.bookingapp.constant.MessageConstants;
 import com.carapp.enums.CarStatus;
 import jakarta.validation.constraints.NotNull;
+import lombok.Builder;
 import lombok.Data;
 
 @Data
-public class BookingStatusUpdateRequest {
-    @NotNull(message = MessageConstants.STATUS_CANNOT_BE_NULL)
+@Builder
+public class CarBookingStatusRequest {
+    @NotNull(message = "Status cannot be null")
     private CarStatus status;
 
     public boolean isValidStatus() {

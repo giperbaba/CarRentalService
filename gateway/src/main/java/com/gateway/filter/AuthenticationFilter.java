@@ -25,10 +25,12 @@ public class AuthenticationFilter implements GlobalFilter, Ordered {
     private static final String REQUEST_ID_HEADER = "X-Request-ID";
     private static final String ROLES_HEADER = "X-Roles";
     private static final String USERNAME_HEADER = "X-Username";
+    private static final String USER_ID_HEADER = "X-User-ID";
     private static final List<String> OPEN_ENDPOINTS = List.of(
             "/api/user/login",
             "/api/user/register",
-            "/api/user/refresh"
+            "/api/user/refresh",
+            "/api/bookings/health"
     );
 
     private final JwtUtil jwtUtil;
@@ -45,7 +47,6 @@ public class AuthenticationFilter implements GlobalFilter, Ordered {
         String requestId = UUID.randomUUID().toString();
         MDC.put("requestId", requestId);
 
-        logger.info("Incoming request: {} {} with headers: {}", request.getMethod(), path, request.getHeaders());
 
         if (OPEN_ENDPOINTS.stream().anyMatch(path::endsWith)) {
             return chain.filter(exchange);
@@ -67,15 +68,15 @@ public class AuthenticationFilter implements GlobalFilter, Ordered {
 
         List<String> roles = jwtUtil.getRolesFromToken(token);
         String username = jwtUtil.getUsernameFromToken(token);
+        String userId = jwtUtil.getUserIdFromToken(token);
 
         ServerHttpRequest modifiedRequest = request.mutate()
                 .header(REQUEST_ID_HEADER, requestId)
                 .header(ROLES_HEADER, String.join(",", roles))
                 .header(USERNAME_HEADER, username)
+                .header(USER_ID_HEADER, userId)
                 .build();
 
-        logger.debug("Added headers - X-Roles: {}, X-Username: {}", String.join(",", roles), username);
-        logger.debug("Final request headers: {}", modifiedRequest.getHeaders());
 
         exchange.getAttributes().put("roles", String.join(",", roles));
         exchange.getAttributes().put("username", username);

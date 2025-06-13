@@ -31,6 +31,10 @@ public class BookingEventServiceImpl implements BookingEventService {
                 .userId(booking.getUserId())
                 .carId(booking.getCarId())
                 .eventType(eventType)
+                .status(booking.getStatus())
+                .startDate(booking.getStartDate())
+                .endDate(booking.getEndDate())
+                .totalPrice(booking.getTotalPrice())
                 .eventTime(LocalDateTime.now())
                 .build();
 

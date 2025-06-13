@@ -1,5 +1,6 @@
 package com.gateway.config;
 
+import com.gateway.filter.HeaderPropagationFilter;
 import org.springframework.cloud.gateway.route.RouteLocator;
 import org.springframework.cloud.gateway.route.builder.RouteLocatorBuilder;
 import org.springframework.context.annotation.Bean;
@@ -31,7 +32,19 @@ public class RouteConfig {
                                 .setStatuses(HttpStatus.INTERNAL_SERVER_ERROR)
                             )
                         )
+                        .uri("http://localhost:8083"))
+                .route("booking-service", r -> r
+                        .path("/api/bookings/**")
+                        .filters(f -> f
+                            .preserveHostHeader()
+                            .filter(new HeaderPropagationFilter().apply(new HeaderPropagationFilter.Config()))
+                            .retry(retryConfig -> retryConfig
+                                .setRetries(1)
+                                .setStatuses(HttpStatus.INTERNAL_SERVER_ERROR)
+                            )
+                        )
                         .uri("http://localhost:8082"))
                 .build();
+                
     }
 } 

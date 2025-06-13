@@ -13,7 +13,7 @@ import java.util.UUID;
 public class BookingEvent {
     private UUID eventId;
     private Long bookingId;
-    private Long userId;
+    private UUID userId;
     private UUID carId;
     private BookingEventType eventType;
     private BookingStatus status;

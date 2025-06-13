@@ -1,8 +1,11 @@
 package com.bookingapp.dto.car;
 
+import com.fasterxml.jackson.annotation.JsonFormat;
+import com.carapp.enums.CarStatus;
 import lombok.Data;
 
 import java.math.BigDecimal;
+import java.time.LocalDateTime;
 import java.util.UUID;
 
 @Data
@@ -12,6 +15,16 @@ public class CarResponseDto {
     private String model;
     private Integer year;
     private String licensePlate;
-    private BigDecimal pricePerDay;
+    private BigDecimal dailyRate;
+    private String description;
     private CarStatus status;
+    
+    @JsonFormat(pattern = "yyyy-MM-dd HH:mm:ss")
+    private LocalDateTime createdAt;
+    
+    @JsonFormat(pattern = "yyyy-MM-dd HH:mm:ss")
+    private LocalDateTime updatedAt;
+    
+    private String createdBy;
+    private String updatedBy;
 } 

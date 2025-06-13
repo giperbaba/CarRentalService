@@ -15,6 +15,8 @@ public interface ICarService {
 
     CarResponse getCar(UUID id);
 
+    boolean isCarAvailable(UUID id);
+
     List<CarResponse> getAllCars();
 
     List<CarResponse> getAvailableCars();

@@ -128,6 +128,12 @@ public class CarService implements ICarService {
         return carMapper.toResponse(updatedCar);
     }
 
+    @Override
+    public boolean isCarAvailable(UUID id) {
+        Car car = findCarById(id);
+        return car.getStatus() == CarStatus.AVAILABLE;
+    }
+
     private Car findCarById(UUID id) {
         return carRepository.findById(id)
                 .orElseThrow(() -> new CarNotFoundException(ValidationConstants.CAR_NOT_FOUND));
