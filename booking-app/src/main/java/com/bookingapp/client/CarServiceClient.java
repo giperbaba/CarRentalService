@@ -20,6 +20,6 @@ public interface CarServiceClient {
     @GetMapping("/api/cars/{id}/available")
     boolean isCarAvailable(@PathVariable UUID id);
 
-    @PutMapping("/api/cars/{id}/booking-status")
+    @PutMapping("/api/cars/{id}/status")
     void updateCarStatus(@PathVariable UUID id, @RequestBody CarBookingStatusRequest request);
 } 

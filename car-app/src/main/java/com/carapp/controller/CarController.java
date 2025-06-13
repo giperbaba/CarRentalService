@@ -59,8 +59,8 @@ public class CarController {
         return ResponseEntity.ok(carService.updateMaintenanceStatus(id, request));
     }
 
-    @PutMapping("/{id}/booking-status")
-    public ResponseEntity<CarResponse> updateBookingStatus(
+    @PutMapping("/{id}/status")
+    public ResponseEntity<CarResponse> updateCarStatus(
             @PathVariable UUID id,
             @Valid @RequestBody CarBookingStatusRequest request) {
         return ResponseEntity.ok(carService.updateBookingStatus(id, request));

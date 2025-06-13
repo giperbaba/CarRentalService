@@ -1,5 +1,6 @@
 package com.bookingapp.exception;
 
+import com.bookingapp.constant.BookingConstants;
 import jakarta.persistence.EntityNotFoundException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -11,12 +12,16 @@ public class GlobalExceptionHandler {
 
     @ExceptionHandler(BookingException.class)
     public ResponseEntity<ErrorResponse> handleBookingException(BookingException ex) {
+        HttpStatus status = ex.getMessage().equals(BookingConstants.ErrorMessages.ACCESS_DENIED)
+            ? HttpStatus.FORBIDDEN 
+            : HttpStatus.BAD_REQUEST;
+            
         ErrorResponse error = new ErrorResponse(
-            HttpStatus.BAD_REQUEST.value(),
+            status.value(),
             ex.getMessage(),
             System.currentTimeMillis()
         );
-        return new ResponseEntity<>(error, HttpStatus.BAD_REQUEST);
+        return new ResponseEntity<>(error, status);
     }
 
     @ExceptionHandler(EntityNotFoundException.class)

@@ -1,6 +1,7 @@
 package com.bookingapp.config;
 
 import feign.RequestInterceptor;
+import feign.codec.ErrorDecoder;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.core.Authentication;
@@ -44,5 +45,10 @@ public class FeignConfig {
                 }
             }
         };
+    }
+
+    @Bean
+    public ErrorDecoder errorDecoder() {
+        return new FeignErrorDecoder();
     }
 } 

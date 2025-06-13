@@ -7,12 +7,11 @@ import java.util.UUID;
 
 public interface BookingService {
     BookingResponseDto createBooking(UUID userId, BookingRequestDto request);
-    /*BookingResponseDto getBooking(Long id);
-    List<BookingResponseDto> getCurrentUserRentals();
-    List<BookingResponseDto> getUserBookings(Long userId);
+    BookingResponseDto getBooking(Long id, UUID userId);
+    List<BookingResponseDto> getUserBookings(UUID userId);
     List<BookingResponseDto> getCarBookings(UUID carId);
-    BookingResponseDto completeBooking(Long id);
-    void cancelBooking(Long id);
-    void processExpiredBookings();
-    BookingResponseDto processPayment(Long id, String paymentMethod);*/
+    BookingResponseDto completeBooking(Long id, UUID userId);
+    BookingResponseDto cancelBooking(Long id, UUID userId);
+    BookingResponseDto processPayment(Long id, String paymentMethod, UUID userId);
+    /*BookingResponseDto processPayment(Long id, String paymentMethod);*/
 } 

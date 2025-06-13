@@ -24,6 +24,10 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.security.core.authority.SimpleGrantedAuthority;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContext;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -32,6 +36,7 @@ import java.time.LocalDateTime;
 import java.time.temporal.ChronoUnit;
 import java.util.List;
 import java.util.UUID;
+import java.util.Collections;
 
 @Slf4j
 @Service
@@ -74,6 +79,130 @@ public class BookingServiceImpl implements BookingService {
         return bookingMapper.toDto(savedBooking);
     }
 
+    @Override
+    @Transactional(readOnly = true)
+    public BookingResponseDto getBooking(Long id, UUID userId) {
+        log.info("Getting booking: id={}, userId={}", id, userId);
+        Booking booking = findBookingById(id);
+        log.info("Found booking: id={}, bookingUserId={}, requestUserId={}", 
+                id, booking.getUserId(), userId);
+        
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        boolean isAdmin = authentication != null && 
+                authentication.getAuthorities().stream()
+                        .anyMatch(a -> a.getAuthority().equals("ROLE_ADMIN"));
+
+        if (!isAdmin && !booking.getUserId().equals(userId)) {
+            log.warn("Access denied: bookingId={}, bookingUserId={}, requestUserId={}", 
+                    id, booking.getUserId(), userId);
+            throw new BookingException(BookingConstants.ErrorMessages.ACCESS_DENIED);
+        }
+        
+        return bookingMapper.toDto(booking);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<BookingResponseDto> getUserBookings(UUID userId) {
+        return bookingRepository.findByUserIdOrderByCreatedAtDesc(userId)
+                .stream()
+                .map(bookingMapper::toDto)
+                .toList();
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<BookingResponseDto> getCarBookings(UUID carId) {
+        return bookingRepository.findByCarIdOrderByCreatedAtDesc(carId)
+                .stream()
+                .map(bookingMapper::toDto)
+                .toList();
+    }
+
+    @Override
+    @Transactional
+    public BookingResponseDto completeBooking(Long id, UUID userId) {
+        Booking booking = findBookingById(id);
+        if (!booking.getUserId().equals(userId)) {
+            throw new BookingException(BookingConstants.ErrorMessages.ACCESS_DENIED);
+        }
+        
+        if (booking.getStatus() != BookingStatus.CONFIRMED) {
+            throw new BookingException(BookingConstants.ErrorMessages.BOOKING_MUST_BE_CONFIRMED);
+        }
+
+        booking.setStatus(BookingStatus.COMPLETED);
+        booking.setActualEndDate(LocalDateTime.now());
+
+        carServiceClient.updateCarStatus(booking.getCarId(), CarBookingStatusRequest.builder()
+                .status(CarStatus.AVAILABLE)
+                .build());
+        
+        Booking savedBooking = bookingRepository.save(booking);
+        bookingEventService.sendBookingEvent(savedBooking, BookingEventType.BOOKING_COMPLETED);
+        
+        return bookingMapper.toDto(savedBooking);
+    }
+
+    @Override
+    @Transactional
+    public BookingResponseDto cancelBooking(Long id, UUID userId) {
+        Booking booking = findBookingById(id);
+        if (!booking.getUserId().equals(userId)) {
+            throw new BookingException(BookingConstants.ErrorMessages.ACCESS_DENIED);
+        }
+        
+        if (booking.getStatus() == BookingStatus.COMPLETED) {
+            throw new BookingException(BookingConstants.ErrorMessages.CANNOT_CANCEL_COMPLETED);
+        }
+
+        booking.setStatus(BookingStatus.CANCELLED);
+
+        carServiceClient.updateCarStatus(booking.getCarId(), CarBookingStatusRequest.builder()
+                .status(CarStatus.AVAILABLE)
+                .build());
+
+        Booking savedBooking = bookingRepository.save(booking);
+        bookingEventService.sendBookingEvent(savedBooking, BookingEventType.BOOKING_CANCELLED);
+        
+        return bookingMapper.toDto(savedBooking);
+    }
+
+    @Override
+    @Transactional
+    public BookingResponseDto processPayment(Long id, String paymentMethod, UUID userId) {
+        Booking booking = findBookingById(id);
+        if (!booking.getUserId().equals(userId)) {
+            throw new BookingException(BookingConstants.ErrorMessages.ACCESS_DENIED);
+        }
+        
+        if (booking.getStatus() != BookingStatus.PENDING_PAYMENT) {
+            throw new BookingException(BookingConstants.ErrorMessages.BOOKING_NOT_PENDING_PAYMENT);
+        }
+
+        PaymentProcessRequestDto paymentRequest = PaymentProcessRequestDto.builder()
+                .bookingId(booking.getId())
+                .amount(booking.getTotalPrice().doubleValue())
+                .paymentMethod(paymentMethod)
+                .build();
+
+        PaymentProcessResponseDto paymentResponse = paymentServiceClient.processPayment(paymentRequest);
+
+        if ("COMPLETED".equals(paymentResponse.getStatus())) {
+            booking.setStatus(BookingStatus.CONFIRMED);
+            booking.setPaymentId(paymentResponse.getPaymentId());
+            bookingEventService.sendBookingEvent(booking, BookingEventType.BOOKING_CONFIRMED);
+        } else {
+            booking.setStatus(BookingStatus.PAYMENT_FAILED);
+            carServiceClient.updateCarStatus(booking.getCarId(), CarBookingStatusRequest.builder()
+                    .status(CarStatus.AVAILABLE)
+                    .build());
+            bookingEventService.sendBookingEvent(booking, BookingEventType.PAYMENT_FAILED);
+        }
+
+        return bookingMapper.toDto(bookingRepository.save(booking));
+    }
+
     private void validateBookingRequest(BookingRequestDto request) {
         if (request.getEndDate().isBefore(request.getStartDate())) {
             throw new BookingException(BookingConstants.ErrorMessages.END_DATE_BEFORE_START);
@@ -106,131 +235,57 @@ public class BookingServiceImpl implements BookingService {
 
     private Booking findBookingById(Long id) {
         return bookingRepository.findById(id)
-                .orElseThrow(() -> new EntityNotFoundException(
+                .orElseThrow(() -> new BookingException(
                     String.format(BookingConstants.ErrorMessages.BOOKING_NOT_FOUND, id)
                 ));
-    }
-
-    /*@Override
-    @Transactional
-    public BookingResponseDto processPayment(Long id, String paymentMethod) {
-        Booking booking = findBookingById(id);
-        
-        if (booking.getStatus() != BookingStatus.PENDING_PAYMENT) {
-            throw new IllegalStateException("Booking is not in PENDING_PAYMENT status");
-        }
-
-        PaymentProcessRequestDto paymentRequest = PaymentProcessRequestDto.builder()
-                .bookingId(booking.getId())
-                .amount(booking.getTotalPrice().doubleValue())
-                .paymentMethod(paymentMethod)
-                .build();
-
-        PaymentProcessResponseDto paymentResponse = paymentServiceClient.processPayment(paymentRequest);
-
-        if ("COMPLETED".equals(paymentResponse.getStatus())) {
-            booking.setStatus(BookingStatus.CONFIRMED);
-            booking.setPaymentId(paymentResponse.getPaymentId());
-            bookingEventService.sendBookingEvent(booking, BookingEventType.BOOKING_CONFIRMED);
-        } else {
-            booking.setStatus(BookingStatus.PAYMENT_FAILED);
-            carServiceClient.updateCarStatus(booking.getCarId(), CarStatusUpdateRequestDto.builder()
-                    .status(CarStatus.AVAILABLE)
-                    .build());
-            bookingEventService.sendBookingEvent(booking, BookingEventType.PAYMENT_FAILED);
-        }
-
-        return bookingMapper.toDto(bookingRepository.save(booking));
-    }
-
-    @Override
-    @Transactional(readOnly = true)
-    public BookingResponseDto getBooking(Long id) {
-        return bookingMapper.toDto(findBookingById(id));
-    }
-
-    @Override
-    @Transactional(readOnly = true)
-    public List<BookingResponseDto> getUserBookings(Long userId) {
-        return bookingRepository.findByUserIdOrderByCreatedAtDesc(userId)
-                .stream()
-                .map(bookingMapper::toDto)
-                .toList();
-    }
-
-    @Override
-    @Transactional(readOnly = true)
-    public List<BookingResponseDto> getCarBookings(UUID carId) {
-        return bookingRepository.findByCarIdOrderByCreatedAtDesc(carId)
-                .stream()
-                .map(bookingMapper::toDto)
-                .toList();
-    }
-
-    @Override
-    @Transactional
-    public BookingResponseDto completeBooking(Long id) {
-        Booking booking = findBookingById(id);
-        
-        if (booking.getStatus() != BookingStatus.CONFIRMED) {
-            throw new IllegalStateException("Booking must be in CONFIRMED status to complete");
-        }
-
-        booking.setStatus(BookingStatus.COMPLETED);
-        booking.setActualEndDate(LocalDateTime.now());
-
-        carServiceClient.updateCarStatus(booking.getCarId(), CarStatusUpdateRequestDto.builder()
-                .status(CarStatus.AVAILABLE)
-                .build());
-        
-        Booking savedBooking = bookingRepository.save(booking);
-        bookingEventService.sendBookingEvent(savedBooking, BookingEventType.BOOKING_COMPLETED);
-        
-        return bookingMapper.toDto(savedBooking);
-    }
-
-    @Override
-    @Transactional
-    public void cancelBooking(Long id) {
-        Booking booking = findBookingById(id);
-        
-        if (booking.getStatus() == BookingStatus.COMPLETED) {
-            throw new IllegalStateException("Cannot cancel completed booking");
-        }
-
-        booking.setStatus(BookingStatus.CANCELLED);
-
-        carServiceClient.updateCarStatus(booking.getCarId(), CarStatusUpdateRequestDto.builder()
-                .status(CarStatus.AVAILABLE)
-                .build());
-
-        Booking savedBooking = bookingRepository.save(booking);
-        bookingEventService.sendBookingEvent(savedBooking, BookingEventType.BOOKING_CANCELLED);
     }
 
     @Scheduled(fixedRate = 60000) // Run every minute
     @Transactional
     public void processExpiredBookings() {
-        LocalDateTime timeout = LocalDateTime.now().minusMinutes(paymentTimeoutMinutes);
-        List<Booking> expiredBookings = bookingRepository.findExpiredBookings(BookingStatus.PENDING_PAYMENT, timeout);
-        
-        for (Booking booking : expiredBookings) {
-            booking.setStatus(BookingStatus.CANCELLED);
+        try {
+            LocalDateTime timeout = LocalDateTime.now().minusMinutes(paymentTimeoutMinutes);
+            List<Booking> expiredBookings = bookingRepository.findExpiredBookings(BookingStatus.PENDING_PAYMENT, timeout);
+            
+            for (Booking booking : expiredBookings) {
+                try {
+                    log.info("Processing expired booking: id={}, userId={}, carId={}", 
+                            booking.getId(), booking.getUserId(), booking.getCarId());
+                    
+                    booking.setStatus(BookingStatus.CANCELLED);
 
-            carServiceClient.updateCarStatus(booking.getCarId(), CarStatusUpdateRequestDto.builder()
-                    .status(CarStatus.AVAILABLE)
-                    .build());
+                    try {
+                        // Устанавливаем системного пользователя для фоновой задачи
+                        SecurityContextHolder.getContext().setAuthentication(
+                            new UsernamePasswordAuthenticationToken(
+                                "system",
+                                null,
+                                Collections.singletonList(new SimpleGrantedAuthority("ROLE_ADMIN"))
+                            )
+                        );
 
-            Booking savedBooking = bookingRepository.save(booking);
-            bookingEventService.sendBookingEvent(savedBooking, BookingEventType.BOOKING_EXPIRED);
-            log.info("Cancelled expired booking: {}", booking.getId());
+                        carServiceClient.updateCarStatus(booking.getCarId(), CarBookingStatusRequest.builder()
+                                .status(CarStatus.AVAILABLE)
+                                .build());
+                        log.info("Successfully updated car status for booking: id={}", booking.getId());
+                    } catch (Exception e) {
+                        log.error("Failed to update car status for booking: id={}, error={}", 
+                                booking.getId(), e.getMessage());
+                    } finally {
+                        // Очищаем контекст безопасности
+                        SecurityContextHolder.clearContext();
+                    }
+
+                    Booking savedBooking = bookingRepository.save(booking);
+                    bookingEventService.sendBookingEvent(savedBooking, BookingEventType.BOOKING_EXPIRED);
+                    log.info("Successfully cancelled expired booking: id={}", booking.getId());
+                } catch (Exception e) {
+                    log.error("Error processing expired booking: id={}, error={}", 
+                            booking.getId(), e.getMessage());
+                }
+            }
+        } catch (Exception e) {
+            log.error("Error in processExpiredBookings: {}", e.getMessage());
         }
     }
-
-    @Override
-    @Transactional(readOnly = true)
-    public List<BookingResponseDto> getCurrentUserRentals() {
-        String userId = SecurityContextHolder.getContext().getAuthentication().getName();
-        return getUserBookings(userId);
-    }*/
 } 
