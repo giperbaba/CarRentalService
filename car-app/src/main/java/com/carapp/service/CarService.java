@@ -1,14 +1,9 @@
 package com.carapp.service;
 
 import com.carapp.constant.ValidationConstants;
-import com.carapp.dto.CarCreateRequest;
-import com.carapp.dto.CarResponse;
-import com.carapp.dto.CarMaintenanceStatusRequest;
-import com.carapp.dto.CarBookingStatusRequest;
-import com.carapp.dto.CarUpdateRequest;
+import com.carapp.dto.*;
 import com.carapp.entity.Car;
 import com.carapp.enums.CarStatus;
-import com.carapp.exception.CarNotAvailableException;
 import com.carapp.exception.CarNotFoundException;
 import com.carapp.exception.InvalidCarOperationException;
 import com.carapp.mapper.CarMapper;

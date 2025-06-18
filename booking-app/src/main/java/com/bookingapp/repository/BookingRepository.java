@@ -35,4 +35,6 @@ public interface BookingRepository extends JpaRepository<Booking, Long> {
             @Param("cancelledStatus") BookingStatus cancelledStatus,
             @Param("completedStatus") BookingStatus completedStatus
     );
+
+    List<Booking> findByStatusAndCreatedAtBefore(BookingStatus status, LocalDateTime time);
 } 

@@ -44,7 +44,17 @@ public class RouteConfig {
                             )
                         )
                         .uri("http://localhost:8082"))
+                .route("payment-service", r -> r
+                        .path("/api/payments/**")
+                        .filters(f -> f
+                            .preserveHostHeader()
+                            .filter(new HeaderPropagationFilter().apply(new HeaderPropagationFilter.Config()))
+                            .retry(retryConfig -> retryConfig
+                                .setRetries(1)
+                                .setStatuses(HttpStatus.INTERNAL_SERVER_ERROR)
+                            )
+                        )
+                        .uri("http://localhost:8084"))
                 .build();
-                
     }
 } 

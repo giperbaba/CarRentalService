@@ -18,29 +18,45 @@ public class FeignConfig {
     @Bean
     public RequestInterceptor requestInterceptor() {
         return requestTemplate -> {
-            Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-            if (authentication != null && authentication.isAuthenticated()) {
-                requestTemplate.header("X-Username", authentication.getName());
-                requestTemplate.header("X-Roles", String.join(",", 
-                    authentication.getAuthorities().stream()
-                        .map(authority -> authority.getAuthority().replace("ROLE_", ""))
-                        .toList()
-                ));
-            }
-
             ServletRequestAttributes attributes = (ServletRequestAttributes) RequestContextHolder.getRequestAttributes();
             if (attributes != null) {
                 HttpServletRequest request = attributes.getRequest();
-                Enumeration<String> headerNames = request.getHeaderNames();
-                if (headerNames != null) {
-                    while (headerNames.hasMoreElements()) {
-                        String headerName = headerNames.nextElement();
-                        if (headerName.startsWith("X-") && 
-                            !headerName.equals("X-Username") && 
-                            !headerName.equals("X-Roles")) {
-                            String headerValue = request.getHeader(headerName);
-                            requestTemplate.header(headerName, headerValue);
-                        }
+                
+                // Передаем токен авторизации
+                String authHeader = request.getHeader("Authorization");
+                if (authHeader != null) {
+                    requestTemplate.header("Authorization", authHeader);
+                }
+
+                // Передаем заголовки с информацией о пользователе
+                String userId = request.getHeader("X-User-ID");
+                String roles = request.getHeader("X-Roles");
+                String username = request.getHeader("X-Username");
+                
+                if (userId != null) {
+                    requestTemplate.header("X-User-ID", userId);
+                }
+                if (roles != null) {
+                    requestTemplate.header("X-Roles", roles);
+                }
+                if (username != null) {
+                    requestTemplate.header("X-Username", username);
+                }
+
+                // Если заголовки не были переданы в запросе, берем из контекста безопасности
+                Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+                if (authentication != null && authentication.isAuthenticated()) {
+                    if (userId == null) {
+                        requestTemplate.header("X-User-ID", authentication.getName());
+                    }
+                    if (roles == null) {
+                        requestTemplate.header("X-Roles", authentication.getAuthorities().stream()
+                                .map(authority -> authority.getAuthority())
+                                .reduce((a, b) -> a + "," + b)
+                                .orElse(""));
+                    }
+                    if (username == null) {
+                        requestTemplate.header("X-Username", authentication.getName());
                     }
                 }
             }

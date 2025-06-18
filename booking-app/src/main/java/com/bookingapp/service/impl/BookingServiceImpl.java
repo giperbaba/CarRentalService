@@ -5,29 +5,24 @@ import com.bookingapp.client.PaymentServiceClient;
 import com.bookingapp.constant.BookingConstants;
 import com.bookingapp.domain.Booking;
 import com.bookingapp.domain.enums.BookingStatus;
-import com.bookingapp.dto.BookingRequestDto;
-import com.bookingapp.dto.BookingResponseDto;
-import com.bookingapp.dto.car.CarResponseDto;
+import com.bookingapp.dto.booking.BookingRequestDto;
+import com.bookingapp.dto.booking.BookingResponseDto;
 import com.bookingapp.dto.car.CarBookingStatusRequest;
-import com.bookingapp.dto.payment.PaymentProcessRequestDto;
-import com.bookingapp.dto.payment.PaymentProcessResponseDto;
+import com.bookingapp.dto.payment.*;
 import com.bookingapp.event.BookingEventType;
+import com.bookingapp.event.CarEventType;
 import com.bookingapp.exception.BookingException;
 import com.bookingapp.mapper.BookingMapper;
 import com.bookingapp.repository.BookingRepository;
 import com.bookingapp.service.BookingEventService;
 import com.bookingapp.service.BookingService;
 import com.carapp.enums.CarStatus;
-import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.security.core.context.SecurityContextHolder;
-import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.Authentication;
-import org.springframework.security.core.context.SecurityContext;
-import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -64,28 +59,52 @@ public class BookingServiceImpl implements BookingService {
         Booking booking = bookingMapper.toEntity(request);
         booking.setUserId(userId);
         booking.setStatus(BookingStatus.PENDING_PAYMENT);
-        booking.setTotalPrice(calculatePrice(carServiceClient.getCar(request.getCarId()).getDailyRate(), 
+        booking.setTotalPrice(calculatePrice(carServiceClient.getCar(request.getCarId()).getDailyRate(),
             request.getStartDate(), request.getEndDate()));
         booking.setCreatedAt(LocalDateTime.now());
         booking.setUpdatedAt(LocalDateTime.now());
-
-        carServiceClient.updateCarStatus(request.getCarId(), CarBookingStatusRequest.builder()
-                .status(CarStatus.BOOKED)
-                .build());
-
         Booking savedBooking = bookingRepository.save(booking);
-        bookingEventService.sendBookingEvent(savedBooking, BookingEventType.BOOKING_CREATED);
-        
-        return bookingMapper.toDto(savedBooking);
+
+        try {
+
+            PaymentInitRequestDto paymentRequest = new PaymentInitRequestDto();
+            paymentRequest.setBookingId(savedBooking.getId());
+            paymentRequest.setAmount(savedBooking.getTotalPrice());
+            paymentRequest.setUserId(userId);
+
+            PaymentResponseDto payment = paymentServiceClient.initPayment(paymentRequest);
+            log.info("Payment initialized for booking: {}, paymentId: {}", savedBooking.getId(), payment.getId());
+
+
+
+            try {
+                carServiceClient.updateCarStatus(request.getCarId(), CarBookingStatusRequest.builder()
+                        .status(CarStatus.BOOKED)
+                        .build());
+            }
+            catch (Exception e) {
+                log.error("Failed to update car status for booking: {}", savedBooking.getId(), e);
+                throw new BookingException("Failed to update car status: " + e.getMessage());
+        }
+
+            // Отправляем события
+            //bookingEventService.sendBookingEvent(savedBooking, BookingEventType.BOOKING_CREATED);
+            //bookingEventService.sendCarEvent(Long.parseLong(request.getCarId().toString()), CarEventType.CAR_BOOKED);
+
+            return bookingMapper.toDto(savedBooking);
+        } catch (Exception e) {
+            log.error("Error during booking creation: {}", e.getMessage());
+            // Отменяем бронирование в случае ошибки
+            savedBooking.setStatus(BookingStatus.CANCELLED);
+            bookingRepository.save(savedBooking);
+            throw new BookingException("Failed to create booking: " + e.getMessage());
+        }
     }
 
     @Override
     @Transactional(readOnly = true)
     public BookingResponseDto getBooking(Long id, UUID userId) {
-        log.info("Getting booking: id={}, userId={}", id, userId);
         Booking booking = findBookingById(id);
-        log.info("Found booking: id={}, bookingUserId={}, requestUserId={}", 
-                id, booking.getUserId(), userId);
         
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
         boolean isAdmin = authentication != null && 
@@ -152,7 +171,7 @@ public class BookingServiceImpl implements BookingService {
             throw new BookingException(BookingConstants.ErrorMessages.ACCESS_DENIED);
         }
         
-        if (booking.getStatus() == BookingStatus.COMPLETED) {
+        if (booking.getStatus() != BookingStatus.PENDING_PAYMENT) {
             throw new BookingException(BookingConstants.ErrorMessages.CANNOT_CANCEL_COMPLETED);
         }
 
@@ -166,41 +185,6 @@ public class BookingServiceImpl implements BookingService {
         bookingEventService.sendBookingEvent(savedBooking, BookingEventType.BOOKING_CANCELLED);
         
         return bookingMapper.toDto(savedBooking);
-    }
-
-    @Override
-    @Transactional
-    public BookingResponseDto processPayment(Long id, String paymentMethod, UUID userId) {
-        Booking booking = findBookingById(id);
-        if (!booking.getUserId().equals(userId)) {
-            throw new BookingException(BookingConstants.ErrorMessages.ACCESS_DENIED);
-        }
-        
-        if (booking.getStatus() != BookingStatus.PENDING_PAYMENT) {
-            throw new BookingException(BookingConstants.ErrorMessages.BOOKING_NOT_PENDING_PAYMENT);
-        }
-
-        PaymentProcessRequestDto paymentRequest = PaymentProcessRequestDto.builder()
-                .bookingId(booking.getId())
-                .amount(booking.getTotalPrice().doubleValue())
-                .paymentMethod(paymentMethod)
-                .build();
-
-        PaymentProcessResponseDto paymentResponse = paymentServiceClient.processPayment(paymentRequest);
-
-        if ("COMPLETED".equals(paymentResponse.getStatus())) {
-            booking.setStatus(BookingStatus.CONFIRMED);
-            booking.setPaymentId(paymentResponse.getPaymentId());
-            bookingEventService.sendBookingEvent(booking, BookingEventType.BOOKING_CONFIRMED);
-        } else {
-            booking.setStatus(BookingStatus.PAYMENT_FAILED);
-            carServiceClient.updateCarStatus(booking.getCarId(), CarBookingStatusRequest.builder()
-                    .status(CarStatus.AVAILABLE)
-                    .build());
-            bookingEventService.sendBookingEvent(booking, BookingEventType.PAYMENT_FAILED);
-        }
-
-        return bookingMapper.toDto(bookingRepository.save(booking));
     }
 
     private void validateBookingRequest(BookingRequestDto request) {
@@ -233,6 +217,14 @@ public class BookingServiceImpl implements BookingService {
         return pricePerDay.multiply(BigDecimal.valueOf(days));
     }
 
+    private BigDecimal calculateTotalPrice(LocalDateTime startDate, LocalDateTime endDate, BigDecimal pricePerDay) {
+        long days = ChronoUnit.DAYS.between(startDate, endDate);
+        if (days < 1) {
+            days = 1;
+        }
+        return pricePerDay.multiply(BigDecimal.valueOf(days));
+    }
+
     private Booking findBookingById(Long id) {
         return bookingRepository.findById(id)
                 .orElseThrow(() -> new BookingException(
@@ -249,36 +241,32 @@ public class BookingServiceImpl implements BookingService {
             
             for (Booking booking : expiredBookings) {
                 try {
-                    log.info("Processing expired booking: id={}, userId={}, carId={}", 
-                            booking.getId(), booking.getUserId(), booking.getCarId());
+                    log.info("Processing expired booking: id={}", booking.getId());
                     
+                    // Обновляем статус бронирования
                     booking.setStatus(BookingStatus.CANCELLED);
-
+                    bookingRepository.save(booking);
+                    
+                    // Отменяем платеж
                     try {
-                        // Устанавливаем системного пользователя для фоновой задачи
-                        SecurityContextHolder.getContext().setAuthentication(
-                            new UsernamePasswordAuthenticationToken(
-                                "system",
-                                null,
-                                Collections.singletonList(new SimpleGrantedAuthority("ROLE_ADMIN"))
-                            )
-                        );
-
+                        paymentServiceClient.cancelPayment(booking.getPaymentId());
+                    } catch (Exception e) {
+                        log.error("Failed to cancel payment for booking: {}", booking.getId(), e);
+                    }
+                    
+                    // Освобождаем машину
+                    try {
                         carServiceClient.updateCarStatus(booking.getCarId(), CarBookingStatusRequest.builder()
                                 .status(CarStatus.AVAILABLE)
                                 .build());
-                        log.info("Successfully updated car status for booking: id={}", booking.getId());
                     } catch (Exception e) {
-                        log.error("Failed to update car status for booking: id={}, error={}", 
-                                booking.getId(), e.getMessage());
-                    } finally {
-                        // Очищаем контекст безопасности
-                        SecurityContextHolder.clearContext();
+                        log.error("Failed to update car status for booking: {}", booking.getId(), e);
                     }
-
-                    Booking savedBooking = bookingRepository.save(booking);
-                    bookingEventService.sendBookingEvent(savedBooking, BookingEventType.BOOKING_EXPIRED);
-                    log.info("Successfully cancelled expired booking: id={}", booking.getId());
+                    
+                    // Отправляем события
+                    bookingEventService.sendBookingEvent(booking, BookingEventType.BOOKING_EXPIRED);
+                    bookingEventService.sendBookingEvent(booking, BookingEventType.CAR_RELEASED);
+                    
                 } catch (Exception e) {
                     log.error("Error processing expired booking: id={}, error={}", 
                             booking.getId(), e.getMessage());
@@ -287,5 +275,37 @@ public class BookingServiceImpl implements BookingService {
         } catch (Exception e) {
             log.error("Error in processExpiredBookings: {}", e.getMessage());
         }
+    }
+
+    @Override
+    @Transactional
+    public Booking save(Booking booking) {
+        return bookingRepository.save(booking);
+    }
+
+    @Override
+    @Transactional
+    public BookingResponseDto confirmBooking(Long id, UUID userId, Long paymentId) {
+        Booking booking = findBookingById(id);
+        if (!booking.getUserId().equals(userId)) {
+            throw new BookingException(BookingConstants.ErrorMessages.ACCESS_DENIED);
+        }
+        
+        if (booking.getStatus() != BookingStatus.PENDING_PAYMENT) {
+            throw new BookingException(BookingConstants.ErrorMessages.BOOKING_NOT_PENDING_PAYMENT);
+        }
+
+        booking.setStatus(BookingStatus.CONFIRMED);
+        booking.setPaymentId(paymentId);
+        Booking savedBooking = bookingRepository.save(booking);
+        bookingEventService.sendBookingEvent(savedBooking, BookingEventType.BOOKING_CONFIRMED);
+        
+        return bookingMapper.toDto(savedBooking);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<Booking> findUnpaidBookingsOlderThan(LocalDateTime time) {
+        return bookingRepository.findByStatusAndCreatedAtBefore(BookingStatus.PENDING_PAYMENT, time);
     }
 } 

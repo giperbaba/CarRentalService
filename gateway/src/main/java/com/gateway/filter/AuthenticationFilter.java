@@ -29,8 +29,7 @@ public class AuthenticationFilter implements GlobalFilter, Ordered {
     private static final List<String> OPEN_ENDPOINTS = List.of(
             "/api/user/login",
             "/api/user/register",
-            "/api/user/refresh",
-            "/api/bookings/health"
+            "/api/user/refresh"
     );
 
     private final JwtUtil jwtUtil;
@@ -47,28 +46,36 @@ public class AuthenticationFilter implements GlobalFilter, Ordered {
         String requestId = UUID.randomUUID().toString();
         MDC.put("requestId", requestId);
 
+        logger.debug("Processing request: {} {}", request.getMethod(), path);
+        logger.debug("Original headers: {}", request.getHeaders());
 
         if (OPEN_ENDPOINTS.stream().anyMatch(path::endsWith)) {
+            logger.debug("Skipping authentication for open endpoint: {}", path);
             return chain.filter(exchange);
         }
 
         if (!request.getHeaders().containsKey(HttpHeaders.AUTHORIZATION)) {
+            logger.warn("No authorization header found in request");
             return onError(exchange, "No authorization header", HttpStatus.UNAUTHORIZED);
         }
 
         String authHeader = request.getHeaders().getFirst(HttpHeaders.AUTHORIZATION);
         if (authHeader == null || !authHeader.startsWith("Bearer ")) {
+            logger.warn("Invalid authorization header format: {}", authHeader);
             return onError(exchange, "Invalid authorization header", HttpStatus.UNAUTHORIZED);
         }
 
         String token = authHeader.substring(7);
         if (!jwtUtil.validateToken(token)) {
+            logger.warn("Invalid JWT token");
             return onError(exchange, "Invalid JWT token", HttpStatus.UNAUTHORIZED);
         }
 
         List<String> roles = jwtUtil.getRolesFromToken(token);
         String username = jwtUtil.getUsernameFromToken(token);
         String userId = jwtUtil.getUserIdFromToken(token);
+
+        logger.debug("Extracted from token - UserId: {}, Roles: {}, Username: {}", userId, roles, username);
 
         ServerHttpRequest modifiedRequest = request.mutate()
                 .header(REQUEST_ID_HEADER, requestId)
@@ -77,9 +84,9 @@ public class AuthenticationFilter implements GlobalFilter, Ordered {
                 .header(USER_ID_HEADER, userId)
                 .build();
 
-
-        exchange.getAttributes().put("roles", String.join(",", roles));
-        exchange.getAttributes().put("username", username);
+        logger.debug("Modified request headers: {}", modifiedRequest.getHeaders());
+        logger.debug("Modified request path: {}", modifiedRequest.getPath());
+        logger.debug("Modified request URI: {}", modifiedRequest.getURI());
 
         return chain.filter(exchange.mutate().request(modifiedRequest).build());
     }

@@ -19,7 +19,7 @@ public final class BookingConstants {
         public static final String CAR_NOT_FOUND = "Car not found";
         public static final String INTERNAL_SERVER_ERROR = "Internal server error occurred";
         public static final String UNEXPECTED_ERROR = "An unexpected error occurred";
-        public static final String CANNOT_CANCEL_COMPLETED = "Cannot cancel completed booking";
+        public static final String CANNOT_CANCEL_COMPLETED = "Cannot cancel not pending payment booking";
         public static final String BOOKING_MUST_BE_CONFIRMED = "Booking must be in CONFIRMED status to complete";
         public static final String BOOKING_NOT_PENDING_PAYMENT = "Booking is not in PENDING_PAYMENT status";
     }

@@ -1,8 +1,8 @@
 package com.bookingapp.mapper;
 
 import com.bookingapp.domain.Booking;
-import com.bookingapp.dto.BookingRequestDto;
-import com.bookingapp.dto.BookingResponseDto;
+import com.bookingapp.dto.booking.BookingRequestDto;
+import com.bookingapp.dto.booking.BookingResponseDto;
 import org.mapstruct.Mapper;
 import org.mapstruct.Mapping;
 import org.mapstruct.MappingTarget;

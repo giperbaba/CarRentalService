@@ -33,6 +33,17 @@ spring:
           filters:
             - PreserveHostHeader
             - StripPrefix=0
+
+        - id: payment-service
+          uri: http://localhost:8084
+          predicates:
+            - Path=/api/payments/**
+          filters:
+            - RemoveRequestHeader=Cookie
+            - RemoveRequestHeader=Set-Cookie
+            - PreserveHostHeader
+            - StripPrefix=0
+
       globalcors:
         corsConfigurations:
           '[/**]':
@@ -44,9 +55,11 @@ spring:
               - X-Requested-With
               - X-Roles
               - X-Username
+              - X-User-ID
             exposedHeaders:
               - X-Roles
               - X-Username
+              - X-User-ID
 
 eureka:
   client:
@@ -65,8 +78,8 @@ logging:
   pattern:
     console: "%d{HH:mm:ss.SSS} [%thread] [%X{requestId}] %-5level %logger{36} - %msg%n"
   level:
-    org.springframework.cloud.gateway: DEBUG
-    reactor.netty: INFO
-    org.springframework.web: INFO
+    root: INFO
     com.gateway: DEBUG
-    org.springframework.security: DEBUG 
+    org.springframework.security: DEBUG
+    org.springframework.web: DEBUG
+    org.springframework.cloud.gateway: DEBUG 

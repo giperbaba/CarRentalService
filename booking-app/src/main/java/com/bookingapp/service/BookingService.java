@@ -1,7 +1,10 @@
 package com.bookingapp.service;
 
-import com.bookingapp.dto.BookingRequestDto;
-import com.bookingapp.dto.BookingResponseDto;
+import com.bookingapp.domain.Booking;
+import com.bookingapp.dto.booking.BookingRequestDto;
+import com.bookingapp.dto.booking.BookingResponseDto;
+import com.bookingapp.domain.enums.PaymentMethod;
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.UUID;
 
@@ -12,6 +15,7 @@ public interface BookingService {
     List<BookingResponseDto> getCarBookings(UUID carId);
     BookingResponseDto completeBooking(Long id, UUID userId);
     BookingResponseDto cancelBooking(Long id, UUID userId);
-    BookingResponseDto processPayment(Long id, String paymentMethod, UUID userId);
-    /*BookingResponseDto processPayment(Long id, String paymentMethod);*/
+    List<Booking> findUnpaidBookingsOlderThan(LocalDateTime time);
+    Booking save(Booking booking);
+    BookingResponseDto confirmBooking(Long id, UUID userId, Long paymentId);
 } 

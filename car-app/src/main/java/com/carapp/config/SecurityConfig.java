@@ -54,6 +54,8 @@ public class SecurityConfig {
             String username = (String) authentication.getPrincipal();
             String rolesHeader = (String) authentication.getCredentials();
             
+            logger.debug("Authenticating user: {} with roles: {}", username, rolesHeader);
+            
             List<SimpleGrantedAuthority> authorities = Arrays.stream(rolesHeader.split(","))
                     .map(role -> {
                         // Ensure role has ROLE_ prefix
@@ -73,7 +75,7 @@ public class SecurityConfig {
         filter.setPrincipalRequestHeader("X-Username");
         filter.setCredentialsRequestHeader("X-Roles");
         filter.setAuthenticationManager(provider::authenticate);
-        filter.setExceptionIfHeaderMissing(true);
+        filter.setExceptionIfHeaderMissing(false);
 
         http
             .csrf(csrf -> csrf.disable())
@@ -96,6 +98,7 @@ public class SecurityConfig {
                 }))
             .authorizeHttpRequests(auth -> auth
                 .requestMatchers("/error").permitAll()
+                .requestMatchers("/api/cars/{id}/available").permitAll()
                 .anyRequest().authenticated());
 
         return http.build();

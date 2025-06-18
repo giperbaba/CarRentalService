@@ -1,26 +1,21 @@
 package com.bookingapp.controller;
 
-import com.bookingapp.dto.BookingRequestDto;
-import com.bookingapp.dto.BookingResponseDto;
+import com.bookingapp.dto.booking.BookingRequestDto;
+import com.bookingapp.dto.booking.BookingResponseDto;
 import com.bookingapp.service.BookingService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
-import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.*;
 
-import jakarta.servlet.http.HttpServletRequest;
 import java.util.List;
 import java.util.UUID;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 @RestController
 @RequestMapping("/api/bookings")
 @RequiredArgsConstructor
 public class BookingController {
     private final BookingService bookingService;
-    private static final Logger log = LoggerFactory.getLogger(BookingController.class);
 
     @PostMapping
     public ResponseEntity<BookingResponseDto> createBooking(
@@ -70,20 +65,11 @@ public class BookingController {
         return ResponseEntity.ok(bookingService.completeBooking(id, UUID.fromString(userId)));
     }
 
-    @PostMapping("/{id}/cancel")
-    public ResponseEntity<BookingResponseDto> cancelBooking(
+    @PostMapping("/{id}/confirm")
+    public ResponseEntity<BookingResponseDto> confirmBooking(
             @PathVariable Long id,
-            @RequestHeader("X-User-ID") String userId
-    ) {
-        return ResponseEntity.ok(bookingService.cancelBooking(id, UUID.fromString(userId)));
-    }
-
-    @PostMapping("/{id}/payment")
-    public ResponseEntity<BookingResponseDto> processPayment(
-            @PathVariable Long id,
-            @RequestParam String paymentMethod,
-            @RequestHeader("X-User-ID") String userId
-    ) {
-        return ResponseEntity.ok(bookingService.processPayment(id, paymentMethod, UUID.fromString(userId)));
+            @RequestHeader("X-User-ID") String userId,
+            @RequestParam(required = false) Long paymentId) {
+        return ResponseEntity.ok(bookingService.confirmBooking(id, UUID.fromString(userId), paymentId));
     }
 } 

@@ -1,4 +1,4 @@
-package com.bookingapp.dto;
+package com.bookingapp.dto.booking;
 
 import com.bookingapp.domain.enums.BookingStatus;
 import lombok.Data;

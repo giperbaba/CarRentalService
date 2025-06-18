@@ -1,0 +1,16 @@
+package com.bookingapp.dto;
+
+import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.Data;
+import lombok.NoArgsConstructor;
+
+@Data
+@Builder
+@NoArgsConstructor
+@AllArgsConstructor
+public class PaymentProcessRequestDto {
+    private Long bookingId;
+    private Double amount;
+    private String cardNumber;
+} 
