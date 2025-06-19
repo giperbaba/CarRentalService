@@ -8,8 +8,8 @@ import org.springframework.data.domain.Pageable;
 
 public interface PaymentService {
     PaymentResponseDto initPayment(PaymentInitRequestDto request);
-    PaymentResponseDto processPayment(Long id, PaymentProcessRequestDto request);
-    PaymentResponseDto getPayment(Long id);
+    PaymentResponseDto processPayment(Long id, PaymentProcessRequestDto request, String userId);
+    PaymentResponseDto getPayment(Long id, String userId);
     Page<PaymentResponseDto> getAllPayments(Pageable pageable);
-    PaymentResponseDto cancelPayment(Long id);
+    PaymentResponseDto cancelPayment(Long id, String userId);
 } 

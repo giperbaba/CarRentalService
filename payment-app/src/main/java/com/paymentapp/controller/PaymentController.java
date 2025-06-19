@@ -4,7 +4,6 @@ import com.paymentapp.dto.PaymentInitRequestDto;
 import com.paymentapp.dto.PaymentProcessRequestDto;
 import com.paymentapp.dto.PaymentResponseDto;
 import com.paymentapp.service.PaymentService;
-import com.paymentapp.mapper.PaymentMapper;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -21,26 +20,33 @@ public class PaymentController {
     private final PaymentService paymentService;
 
     @PostMapping("/init")
-    public ResponseEntity<PaymentResponseDto> initPayment(@RequestBody PaymentInitRequestDto request) {
+    public ResponseEntity<PaymentResponseDto> initPayment(
+            @RequestBody PaymentInitRequestDto request,
+            @RequestHeader(value = "X-User-ID", required = false) String userId) {
         return ResponseEntity.ok(paymentService.initPayment(request));
     }
 
     @PostMapping("/{id}/process")
     public ResponseEntity<PaymentResponseDto> processPayment(
             @PathVariable Long id,
-            @RequestBody PaymentProcessRequestDto request) {
-        return ResponseEntity.ok(paymentService.processPayment(id, request));
+            @RequestBody PaymentProcessRequestDto request,
+            @RequestHeader(value = "X-User-ID", required = false) String userId) {
+        return ResponseEntity.ok(paymentService.processPayment(id, request, userId));
     }
 
     @PostMapping("/{id}/cancel")
-    public ResponseEntity<Void> cancelPayment(@PathVariable Long id) {
-        paymentService.cancelPayment(id);
+    public ResponseEntity<Void> cancelPayment(
+            @PathVariable Long id,
+            @RequestHeader(value = "X-User-ID", required = false) String userId) {
+        paymentService.cancelPayment(id, userId);
         return ResponseEntity.ok().build();
     }
 
     @GetMapping("/{id}")
-    public ResponseEntity<PaymentResponseDto> getPayment(@PathVariable Long id) {
-        PaymentResponseDto payment = paymentService.getPayment(id);
+    public ResponseEntity<PaymentResponseDto> getPayment(
+            @PathVariable Long id,
+            @RequestHeader(value = "X-User-ID", required = false) String userId) {
+        PaymentResponseDto payment = paymentService.getPayment(id, userId);
         return ResponseEntity.ok(payment);
     }
 

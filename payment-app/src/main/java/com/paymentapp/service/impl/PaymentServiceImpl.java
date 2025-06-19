@@ -1,8 +1,12 @@
 package com.paymentapp.service.impl;
 
+import com.paymentapp.constant.PaymentConstants.LogMessages;
+import com.paymentapp.constant.PaymentConstants.ErrorMessages;
 import com.paymentapp.dto.*;
 import com.paymentapp.entity.Payment;
-import com.paymentapp.exception.PaymentException;
+import com.paymentapp.exception.InvalidPaymentStatusException;
+import com.paymentapp.exception.PaymentNotFoundException;
+import com.paymentapp.exception.UnauthorizedPaymentAccessException;
 import com.paymentapp.mapper.PaymentMapper;
 import com.paymentapp.repository.PaymentRepository;
 import com.paymentapp.service.PaymentEventService;
@@ -27,77 +31,127 @@ public class PaymentServiceImpl implements PaymentService {
     @Override
     @Transactional
     public PaymentResponseDto initPayment(PaymentInitRequestDto request) {
-        log.info("Initializing payment for booking: {}", request.getBookingId());
-        Payment payment = Payment.builder()
-                .bookingId(request.getBookingId())
-                .amount(request.getAmount())
-                .userId(request.getUserId())
-                .carId(request.getCarId())
-                .status(PaymentStatus.NEW)
-                .build();
+        log.info(LogMessages.PAYMENT_INIT, request.getBookingId());
+        
+        Payment payment = createInitialPayment(request);
         Payment savedPayment = paymentRepository.save(payment);
-        log.info("Payment initialized successfully: {}", savedPayment.getId());
+        
+        log.info(LogMessages.PAYMENT_INIT_SUCCESS, savedPayment.getId());
         return paymentMapper.toDto(savedPayment);
     }
 
     @Override
     @Transactional(readOnly = true)
-    public PaymentResponseDto getPayment(Long id) {
-        log.info("Getting payment: {}", id);
-        Payment payment = paymentRepository.findById(id)
-                .orElseThrow(() -> new PaymentException("Payment not found with id: " + id));
+    public PaymentResponseDto getPayment(Long id, String userId) {
+        log.info(LogMessages.GETTING_PAYMENT, id);
+        Payment payment = findPaymentById(id);
+        validatePaymentOwner(payment, userId);
         return paymentMapper.toDto(payment);
     }
 
     @Override
     @Transactional(readOnly = true)
     public Page<PaymentResponseDto> getAllPayments(Pageable pageable) {
-        log.info("Getting all payments with pagination");
+        log.info(LogMessages.GETTING_ALL_PAYMENTS);
         return paymentRepository.findAll(pageable)
                 .map(paymentMapper::toDto);
     }
 
     @Override
     @Transactional
-    public PaymentResponseDto processPayment(Long id, PaymentProcessRequestDto request) {
+    public PaymentResponseDto processPayment(Long id, PaymentProcessRequestDto request, String userId) {
+        Payment payment = findPaymentById(id);
+        validatePaymentStatus(payment);
+        validatePaymentOwner(payment, userId);
 
-        Payment payment = paymentRepository.findById(id)
-                .orElseThrow(() -> new PaymentException("Payment not found with id: " + id));
-
-        if (payment.getStatus() != PaymentStatus.NEW) {
-            throw new PaymentException("Payment is not in NEW status");
-        }
-
-        log.info("Processing payment transaction for amount: {}", payment.getAmount());
-        String transactionId = UUID.randomUUID().toString();
-        log.info("Transaction completed with ID: {}", transactionId);
-        payment.setTransactionId(transactionId);
-        payment.setStatus(PaymentStatus.PAID);
-
-        Payment savedPayment = paymentRepository.save(payment);
-
-        paymentEventService.sendPaymentEvent(new PaymentEvent(savedPayment.getId(), savedPayment.getBookingId(), savedPayment.getCarId(),
-                savedPayment.getUserId(), savedPayment.getStatus()));
-
-        log.info("Payment processed successfully: {}", savedPayment.getId());
+        log.info(LogMessages.PROCESSING_PAYMENT, payment.getAmount());
+        
+        Payment processedPayment = processPaymentTransaction(payment);
+        Payment savedPayment = paymentRepository.save(processedPayment);
+        
+        notifyPaymentProcessed(savedPayment);
+        
+        log.info(LogMessages.PAYMENT_PROCESSED, savedPayment.getId());
         return paymentMapper.toDto(savedPayment);
     }
 
     @Override
     @Transactional
-    public PaymentResponseDto cancelPayment(Long id) {
-        log.info("Cancelling payment: {}", id);
-        Payment payment = paymentRepository.findById(id)
-                .orElseThrow(() -> new PaymentException("Payment not found with id: " + id));
-
-        if (payment.getStatus() != PaymentStatus.NEW) {
-            throw new PaymentException("Can only cancel payments in NEW status");
-        }
+    public PaymentResponseDto cancelPayment(Long id, String userId) {
+        Payment payment = findPaymentById(id);
+        validatePaymentOwner(payment, userId);
+        validatePaymentForCancellation(payment);
 
         payment.setStatus(PaymentStatus.CANCELLED);
         Payment savedPayment = paymentRepository.save(payment);
         
-        log.info("Payment cancelled successfully: {}", savedPayment.getId());
+        log.info(LogMessages.PAYMENT_CANCELLED, savedPayment.getId());
         return paymentMapper.toDto(savedPayment);
+    }
+
+    private Payment createInitialPayment(PaymentInitRequestDto request) {
+        return Payment.builder()
+                .bookingId(request.getBookingId())
+                .amount(request.getAmount())
+                .userId(request.getUserId())
+                .carId(request.getCarId())
+                .status(PaymentStatus.NEW)
+                .build();
+    }
+
+    private Payment findPaymentById(Long id) {
+        return paymentRepository.findById(id)
+                .orElseThrow(() -> new PaymentNotFoundException(ErrorMessages.PAYMENT_NOT_FOUND));
+    }
+
+    private void validatePaymentStatus(Payment payment) {
+        if (payment.getStatus() != PaymentStatus.NEW) {
+            throw new InvalidPaymentStatusException(ErrorMessages.PAYMENT_NOT_IN_NEW_STATUS);
+        }
+    }
+
+    private void validatePaymentForCancellation(Payment payment) {
+        if (payment.getStatus() != PaymentStatus.NEW) {
+            throw new InvalidPaymentStatusException(ErrorMessages.PAYMENT_CANCEL_INVALID_STATUS);
+        }
+    }
+
+    private void validatePaymentOwner(Payment payment, String userId) {
+        if (userId == null) {
+            throw new UnauthorizedPaymentAccessException(ErrorMessages.UNAUTHORIZED_PAYMENT_ACCESS);
+        }
+        
+        try {
+            if (!payment.getUserId().equals(UUID.fromString(userId))) {
+                throw new UnauthorizedPaymentAccessException(ErrorMessages.UNAUTHORIZED_PAYMENT_ACCESS);
+            }
+        } catch (IllegalArgumentException e) {
+            log.error("Invalid UUID format for userId: {}", userId);
+            throw new UnauthorizedPaymentAccessException(ErrorMessages.UNAUTHORIZED_PAYMENT_ACCESS);
+        }
+    }
+
+    private Payment processPaymentTransaction(Payment payment) {
+        String transactionId = generateTransactionId();
+        log.info(LogMessages.TRANSACTION_COMPLETED, transactionId);
+        
+        payment.setTransactionId(transactionId);
+        payment.setStatus(PaymentStatus.PAID);
+        return payment;
+    }
+
+    private String generateTransactionId() {
+        return UUID.randomUUID().toString();
+    }
+
+    private void notifyPaymentProcessed(Payment payment) {
+        PaymentEvent event = new PaymentEvent(
+                payment.getId(),
+                payment.getBookingId(),
+                payment.getCarId(),
+                payment.getUserId(),
+                payment.getStatus()
+        );
+        paymentEventService.sendPaymentEvent(event);
     }
 } 

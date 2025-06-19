@@ -17,9 +17,14 @@ import org.springframework.security.web.authentication.UsernamePasswordAuthentic
 import org.springframework.web.filter.CommonsRequestLoggingFilter;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.web.cors.CorsConfiguration;
+import org.springframework.web.cors.CorsConfigurationSource;
+import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 
 import java.time.LocalDateTime;
+import java.util.Arrays;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 @Configuration
@@ -28,17 +33,22 @@ import java.util.Map;
 @RequiredArgsConstructor
 public class SecurityConfig {
     private static final Logger logger = LoggerFactory.getLogger(SecurityConfig.class);
-    private final JwtAuthenticationFilter jwtAuthFilter;
+    private final JwtAuthenticationFilter jwtAuthenticationFilter;
     private final ObjectMapper objectMapper;
 
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
         return http
                 .csrf(AbstractHttpConfigurer::disable)
+                .cors(cors -> cors.configurationSource(corsConfigurationSource()))
                 .sessionManagement(session -> session
                         .sessionCreationPolicy(SessionCreationPolicy.STATELESS)
                 )
-                .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class)
+                .authorizeHttpRequests(auth -> auth
+                        .requestMatchers("/api/payments/**").permitAll()
+                        .anyRequest().authenticated()
+                )
+                .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class)
                 .exceptionHandling(ex -> ex
                     .authenticationEntryPoint((request, response, authException) -> {
                         logger.error("Authentication error: {}", authException.getMessage());
@@ -64,9 +74,6 @@ public class SecurityConfig {
                         errorResponse.put("path", request.getRequestURI());
                         objectMapper.writeValue(response.getOutputStream(), errorResponse);
                     }))
-                .authorizeHttpRequests(auth -> auth
-                    .requestMatchers("/error").permitAll()
-                    .anyRequest().authenticated())
                 .build();
     }
 
@@ -79,5 +86,30 @@ public class SecurityConfig {
         loggingFilter.setIncludeHeaders(true);
         loggingFilter.setMaxPayloadLength(10000);
         return loggingFilter;
+    }
+
+    @Bean
+    public CorsConfigurationSource corsConfigurationSource() {
+        CorsConfiguration configuration = new CorsConfiguration();
+        configuration.setAllowedOrigins(List.of("*"));
+        configuration.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "DELETE", "OPTIONS"));
+        configuration.setAllowedHeaders(Arrays.asList(
+                "Authorization",
+                "Content-Type",
+                "X-User-ID",
+                "X-Roles",
+                "X-Username",
+                "X-Request-ID"
+        ));
+        configuration.setExposedHeaders(Arrays.asList(
+                "X-User-ID",
+                "X-Roles",
+                "X-Username",
+                "X-Request-ID"
+        ));
+        
+        UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
+        source.registerCorsConfiguration("/**", configuration);
+        return source;
     }
 } 

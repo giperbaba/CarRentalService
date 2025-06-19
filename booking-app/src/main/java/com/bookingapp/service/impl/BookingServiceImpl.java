@@ -10,7 +10,6 @@ import com.bookingapp.dto.booking.BookingResponseDto;
 import com.bookingapp.dto.car.CarBookingStatusRequest;
 import com.bookingapp.dto.payment.*;
 import com.bookingapp.event.BookingEventType;
-import com.bookingapp.event.CarEventType;
 import com.bookingapp.exception.BookingException;
 import com.bookingapp.mapper.BookingMapper;
 import com.bookingapp.repository.BookingRepository;
@@ -85,16 +84,12 @@ public class BookingServiceImpl implements BookingService {
             }
             catch (Exception e) {
                 throw new BookingException("Failed to update car status: " + e.getMessage());
-        }
-
-            // Отправляем события
-            //bookingEventService.sendBookingEvent(savedBooking, BookingEventType.BOOKING_CREATED);
-            //bookingEventService.sendCarEvent(Long.parseLong(request.getCarId().toString()), CarEventType.CAR_BOOKED);
-
+            }
             return bookingMapper.toDto(savedBooking);
+
         } catch (Exception e) {
             log.error("Error during booking creation: {}", e.getMessage());
-            // Отменяем бронирование в случае ошибки
+
             savedBooking.setStatus(BookingStatus.CANCELLED);
             bookingRepository.save(savedBooking);
             throw new BookingException("Failed to create booking: " + e.getMessage());
@@ -158,7 +153,14 @@ public class BookingServiceImpl implements BookingService {
                 .build());
         
         Booking savedBooking = bookingRepository.save(booking);
-        bookingEventService.sendBookingEvent(savedBooking, BookingEventType.BOOKING_COMPLETED);
+
+        try {
+            carServiceClient.updateCarStatus(booking.getCarId(), CarBookingStatusRequest.builder()
+                    .status(CarStatus.AVAILABLE)
+                    .build());
+        } catch (Exception e) {
+            log.error("Failed to update car status for booking: {}", booking.getId(), e);
+        }
         
         return bookingMapper.toDto(savedBooking);
     }
@@ -182,7 +184,14 @@ public class BookingServiceImpl implements BookingService {
                 .build());
 
         Booking savedBooking = bookingRepository.save(booking);
-        bookingEventService.sendBookingEvent(savedBooking, BookingEventType.BOOKING_CANCELLED);
+
+        try {
+            carServiceClient.updateCarStatus(booking.getCarId(), CarBookingStatusRequest.builder()
+                    .status(CarStatus.AVAILABLE)
+                    .build());
+        } catch (Exception e) {
+            log.error("Failed to update car status for booking: {}", booking.getId(), e);
+        }
         
         return bookingMapper.toDto(savedBooking);
     }
@@ -243,18 +252,15 @@ public class BookingServiceImpl implements BookingService {
                 try {
                     log.info("Processing expired booking: id={}", booking.getId());
                     
-                    // Обновляем статус бронирования
                     booking.setStatus(BookingStatus.CANCELLED);
                     bookingRepository.save(booking);
                     
-                    // Отменяем платеж
                     try {
                         paymentServiceClient.cancelPayment(booking.getPaymentId());
                     } catch (Exception e) {
                         log.error("Failed to cancel payment for booking: {}", booking.getId(), e);
                     }
                     
-                    // Освобождаем машину
                     try {
                         carServiceClient.updateCarStatus(booking.getCarId(), CarBookingStatusRequest.builder()
                                 .status(CarStatus.AVAILABLE)
@@ -262,10 +268,6 @@ public class BookingServiceImpl implements BookingService {
                     } catch (Exception e) {
                         log.error("Failed to update car status for booking: {}", booking.getId(), e);
                     }
-                    
-                    // Отправляем события
-                    bookingEventService.sendBookingEvent(booking, BookingEventType.BOOKING_EXPIRED);
-                    bookingEventService.sendBookingEvent(booking, BookingEventType.CAR_RELEASED);
                     
                 } catch (Exception e) {
                     log.error("Error processing expired booking: id={}, error={}", 
@@ -298,7 +300,14 @@ public class BookingServiceImpl implements BookingService {
         booking.setStatus(BookingStatus.CONFIRMED);
         booking.setPaymentId(paymentId);
         Booking savedBooking = bookingRepository.save(booking);
-        bookingEventService.sendBookingEvent(savedBooking, BookingEventType.BOOKING_CONFIRMED);
+
+        try {
+            carServiceClient.updateCarStatus(booking.getCarId(), CarBookingStatusRequest.builder()
+                    .status(CarStatus.RENTED)
+                    .build());
+        } catch (Exception e) {
+            log.error("Failed to update car status for booking: {}", booking.getId(), e);
+        }
         
         return bookingMapper.toDto(savedBooking);
     }

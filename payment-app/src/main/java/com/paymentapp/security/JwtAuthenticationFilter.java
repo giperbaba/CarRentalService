@@ -37,52 +37,35 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                                   HttpServletResponse response, 
                                   FilterChain filterChain) throws ServletException, IOException {
         
-        String authHeader = request.getHeader(HttpHeaders.AUTHORIZATION);
-        String rolesHeader = request.getHeader("X-Roles");
-        String usernameHeader = request.getHeader("X-Username");
-        String userIdHeader = request.getHeader("X-User-ID");
-        
-        log.debug("Processing request: {} {}", request.getMethod(), request.getRequestURI());
-        log.debug("Headers - X-Roles: {}, X-Username: {}, X-User-ID: {}", 
-                 rolesHeader, usernameHeader, userIdHeader);
-        
-        if (authHeader != null && authHeader.startsWith("Bearer ")) {
-            String token = authHeader.substring(7);
-            
-            // Проверяем наличие необходимых заголовков
-            if (usernameHeader == null || rolesHeader == null) {
-                log.warn("Missing required headers: username={}, roles={}", usernameHeader, rolesHeader);
-                sendErrorResponse(response, HttpServletResponse.SC_UNAUTHORIZED, 
-                    "Missing required authentication headers");
-                return;
-            }
+        try {
+            String userId = request.getHeader("X-User-ID");
+            String roles = request.getHeader("X-Roles");
+            String username = request.getHeader("X-Username");
 
-            try {
-                // Создаем аутентификацию на основе заголовков
-                List<SimpleGrantedAuthority> authorities = Arrays.stream(rolesHeader.split(","))
-                    .map(role -> {
-                        String normalizedRole = role.trim().toUpperCase();
-                        if (!normalizedRole.startsWith("ROLE_")) {
-                            normalizedRole = "ROLE_" + normalizedRole;
-                        }
-                        return new SimpleGrantedAuthority(normalizedRole);
-                    })
-                    .collect(Collectors.toList());
+            log.debug("Processing request: {} {}", request.getMethod(), request.getRequestURI());
+            log.debug("Headers - X-Roles: {}, X-Username: {}, X-User-ID: {}", roles, username, userId);
 
-                UsernamePasswordAuthenticationToken authentication = 
-                    new UsernamePasswordAuthenticationToken(usernameHeader, token, authorities);
-                
+            if (userId != null && roles != null) {
+                List<SimpleGrantedAuthority> authorities = Arrays.stream(roles.split(","))
+                        .map(SimpleGrantedAuthority::new)
+                        .collect(Collectors.toList());
+
+                UsernamePasswordAuthenticationToken authentication = new UsernamePasswordAuthenticationToken(
+                        userId,
+                        null,
+                        authorities
+                );
+
                 SecurityContextHolder.getContext().setAuthentication(authentication);
-                log.debug("Authentication set for user: {} with roles: {}", 
-                         usernameHeader, authorities);
-            } catch (Exception e) {
-                log.error("Error processing authentication: ", e);
-                sendErrorResponse(response, HttpServletResponse.SC_UNAUTHORIZED, 
-                    "Invalid authentication data");
-                return;
+                log.debug("Authentication set for user: {}", userId);
+            } else {
+                log.debug("No authentication headers found");
             }
+        } catch (Exception e) {
+            log.error("Authentication error", e);
+            SecurityContextHolder.clearContext();
         }
-        
+
         filterChain.doFilter(request, response);
     }
 

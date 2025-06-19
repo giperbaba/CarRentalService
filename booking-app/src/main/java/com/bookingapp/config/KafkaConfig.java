@@ -62,6 +62,20 @@ public class KafkaConfig {
     }
 
     @Bean
+    public ProducerFactory<String, Object> objectProducerFactory() {
+        Map<String, Object> configProps = new HashMap<>();
+        configProps.put(ProducerConfig.BOOTSTRAP_SERVERS_CONFIG, bootstrapServers);
+        configProps.put(ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG, StringSerializer.class);
+        configProps.put(ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG, JsonSerializer.class);
+        return new DefaultKafkaProducerFactory<>(configProps);
+    }
+
+    @Bean
+    public KafkaTemplate<String, Object> kafkaTemplateObject() {
+        return new KafkaTemplate<>(objectProducerFactory());
+    }
+
+    @Bean
     public NewTopic bookingEventsTopic() {
         return TopicBuilder.name(bookingEventsTopic)
                 .partitions(1)

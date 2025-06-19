@@ -1,11 +1,8 @@
-package com.bookingapp.event;
+package com.carapp.dto.booking;
 
-import com.bookingapp.domain.enums.BookingStatus;
 import lombok.Builder;
 import lombok.Data;
 
-import java.math.BigDecimal;
-import java.time.LocalDateTime;
 import java.util.UUID;
 
 @Data
@@ -15,4 +12,4 @@ public class BookingEvent {
     private UUID userId;
     private UUID carId;
     private BookingStatus status;
-} 
+}
