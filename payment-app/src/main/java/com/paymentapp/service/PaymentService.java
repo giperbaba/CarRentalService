@@ -6,9 +6,6 @@ import com.paymentapp.dto.PaymentProcessRequestDto;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 
-import java.util.List;
-import java.util.UUID;
-
 public interface PaymentService {
     PaymentResponseDto initPayment(PaymentInitRequestDto request);
     PaymentResponseDto processPayment(Long id, PaymentProcessRequestDto request);

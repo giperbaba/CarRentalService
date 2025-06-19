@@ -9,4 +9,5 @@ public class PaymentInitRequestDto {
     private Long bookingId;
     private BigDecimal amount;
     private UUID userId;
+    private UUID carId;
 }

@@ -1,8 +1,6 @@
 package com.paymentapp.service.impl;
 
-import com.paymentapp.dto.PaymentRequestDto;
-import com.paymentapp.dto.PaymentResponseDto;
-import com.paymentapp.dto.PaymentStatus;
+import com.paymentapp.dto.*;
 import com.paymentapp.entity.Payment;
 import com.paymentapp.exception.PaymentException;
 import com.paymentapp.mapper.PaymentMapper;
@@ -16,12 +14,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.util.List;
 import java.util.UUID;
-import java.util.stream.Collectors;
-
-import com.paymentapp.dto.PaymentInitRequestDto;
-import com.paymentapp.dto.PaymentProcessRequestDto;
 
 @Slf4j
 @Service
@@ -39,6 +32,7 @@ public class PaymentServiceImpl implements PaymentService {
                 .bookingId(request.getBookingId())
                 .amount(request.getAmount())
                 .userId(request.getUserId())
+                .carId(request.getCarId())
                 .status(PaymentStatus.NEW)
                 .build();
         Payment savedPayment = paymentRepository.save(payment);
@@ -66,21 +60,25 @@ public class PaymentServiceImpl implements PaymentService {
     @Override
     @Transactional
     public PaymentResponseDto processPayment(Long id, PaymentProcessRequestDto request) {
-        log.info("Processing payment: {}", id);
+
         Payment payment = paymentRepository.findById(id)
                 .orElseThrow(() -> new PaymentException("Payment not found with id: " + id));
+
         if (payment.getStatus() != PaymentStatus.NEW) {
             throw new PaymentException("Payment is not in NEW status");
         }
-        // Эмуляция обработки платежа
+
         log.info("Processing payment transaction for amount: {}", payment.getAmount());
         String transactionId = UUID.randomUUID().toString();
         log.info("Transaction completed with ID: {}", transactionId);
-        payment.setStatus(PaymentStatus.PAID);
         payment.setTransactionId(transactionId);
-        // Можно добавить сохранение информации о карте, если нужно (request.getCardNumber() и т.д.)
+        payment.setStatus(PaymentStatus.PAID);
+
         Payment savedPayment = paymentRepository.save(payment);
-        paymentEventService.sendPaymentEvent(savedPayment);
+
+        paymentEventService.sendPaymentEvent(new PaymentEvent(savedPayment.getId(), savedPayment.getBookingId(), savedPayment.getCarId(),
+                savedPayment.getUserId(), savedPayment.getStatus()));
+
         log.info("Payment processed successfully: {}", savedPayment.getId());
         return paymentMapper.toDto(savedPayment);
     }

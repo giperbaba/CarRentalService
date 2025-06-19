@@ -58,7 +58,7 @@ public class BookingController {
     }
 
     @PostMapping("/{id}/complete")
-    public ResponseEntity<BookingResponseDto> completeBooking(
+    public ResponseEntity<BookingResponseDto> completeBooking( // закончить аренду
             @PathVariable Long id,
             @RequestHeader("X-User-ID") String userId
     ) {
@@ -66,7 +66,7 @@ public class BookingController {
     }
 
     @PostMapping("/{id}/confirm")
-    public ResponseEntity<BookingResponseDto> confirmBooking(
+    public ResponseEntity<BookingResponseDto> confirmBooking( // начать аренду
             @PathVariable Long id,
             @RequestHeader("X-User-ID") String userId,
             @RequestParam(required = false) Long paymentId) {

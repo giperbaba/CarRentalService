@@ -71,11 +71,12 @@ public class BookingServiceImpl implements BookingService {
             paymentRequest.setBookingId(savedBooking.getId());
             paymentRequest.setAmount(savedBooking.getTotalPrice());
             paymentRequest.setUserId(userId);
+            paymentRequest.setCarId(request.getCarId());
 
             PaymentResponseDto payment = paymentServiceClient.initPayment(paymentRequest);
             log.info("Payment initialized for booking: {}, paymentId: {}", savedBooking.getId(), payment.getId());
 
-
+            savedBooking.setPaymentId(payment.getId());
 
             try {
                 carServiceClient.updateCarStatus(request.getCarId(), CarBookingStatusRequest.builder()
@@ -83,7 +84,6 @@ public class BookingServiceImpl implements BookingService {
                         .build());
             }
             catch (Exception e) {
-                log.error("Failed to update car status for booking: {}", savedBooking.getId(), e);
                 throw new BookingException("Failed to update car status: " + e.getMessage());
         }
 

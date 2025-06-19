@@ -8,7 +8,7 @@ import org.mapstruct.*;
 import org.springframework.stereotype.Component;
 
 @Mapper(componentModel = "spring", unmappedTargetPolicy = ReportingPolicy.IGNORE)
-@Component
+
 public interface CarMapper {
     
     @Mapping(target = "id", ignore = true)

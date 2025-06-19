@@ -1,6 +1,6 @@
 package com.paymentapp.service;
 
-import com.paymentapp.entity.Payment;
+import com.paymentapp.dto.PaymentEvent;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.kafka.core.KafkaTemplate;
@@ -13,9 +13,7 @@ public class PaymentEventService {
     private final KafkaTemplate<String, Object> kafkaTemplate;
     private static final String PAYMENT_TOPIC = "payment-events";
 
-    public void sendPaymentEvent(Payment payment) {
-        log.info("Sending payment event for payment: {}", payment.getId());
+    public void sendPaymentEvent(PaymentEvent payment) {
         kafkaTemplate.send(PAYMENT_TOPIC, payment);
-        log.info("Payment event sent successfully");
     }
 } 

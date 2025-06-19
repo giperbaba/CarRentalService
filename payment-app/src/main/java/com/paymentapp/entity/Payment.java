@@ -31,6 +31,9 @@ public class Payment {
     private UUID userId;
 
     @Column(nullable = false)
+    private UUID carId;
+
+    @Column(nullable = false)
     private BigDecimal amount;
 
     @Column(nullable = false)
