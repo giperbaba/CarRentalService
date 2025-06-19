@@ -1,4 +1,4 @@
-/*package com.bookingapp.listener;
+package com.bookingapp.listener;
 import com.bookingapp.service.BookingService;
 import com.bookingapp.dto.payment.PaymentEvent;
 import com.bookingapp.dto.payment.PaymentStatus;
@@ -11,7 +11,7 @@ import org.springframework.stereotype.Component;
 public class BookingPaymentListener {
     private final BookingService bookingService;
 
-    @KafkaListener(topics = "payment-events", groupId = "booking-service")
+    @KafkaListener(topics = "payment-events-v2", groupId = "booking-service")
     public void handlePaymentEvent(PaymentEvent payment) {
         if (payment.getStatus() == PaymentStatus.PAID) {
             bookingService.confirmBooking(payment.getBookingId(), payment.getUserId(), payment.getPaymentId());
@@ -19,4 +19,4 @@ public class BookingPaymentListener {
             bookingService.cancelBooking(payment.getBookingId(), payment.getUserId());
         }
     }
-}*/
+}

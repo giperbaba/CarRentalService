@@ -1,4 +1,4 @@
-/*package com.carapp.listener;
+package com.carapp.listener;
 
 import com.carapp.dto.CarBookingStatusRequest;
 import com.carapp.dto.PaymentEvent;
@@ -14,7 +14,7 @@ import org.springframework.stereotype.Component;
 public class CarPaymentListener {
     private final CarService carService;
 
-    @KafkaListener(topics = "payment-events", groupId = "car-service")
+    @KafkaListener(topics = "payment-events-v2", groupId = "car-service")
     public void handlePaymentEvent(PaymentEvent payment) {
         if (payment.getStatus() == PaymentStatus.PAID) {
             carService.updateBookingStatus(payment.getCarId(), new CarBookingStatusRequest(CarStatus.RENTED));
@@ -23,4 +23,4 @@ public class CarPaymentListener {
             carService.updateBookingStatus(payment.getCarId(), new CarBookingStatusRequest(CarStatus.AVAILABLE));
         }
     }
-}*/
+}

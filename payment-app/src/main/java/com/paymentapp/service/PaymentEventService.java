@@ -11,7 +11,7 @@ import org.springframework.stereotype.Service;
 @RequiredArgsConstructor
 public class PaymentEventService {
     private final KafkaTemplate<String, Object> kafkaTemplate;
-    private static final String PAYMENT_TOPIC = "payment-events";
+    private static final String PAYMENT_TOPIC = "payment-events-v2";
 
     public void sendPaymentEvent(PaymentEvent payment) {
         kafkaTemplate.send(PAYMENT_TOPIC, payment);

@@ -10,9 +10,9 @@ import java.util.UUID;
 @AllArgsConstructor
 @NoArgsConstructor
 public class PaymentEvent {
-    Long paymentId;
-    Long bookingId;
-    UUID carId;
-    UUID userId;
-    PaymentStatus status;
+    private Long paymentId;
+    private Long bookingId;
+    private UUID carId;
+    private UUID userId;
+    private PaymentStatus status;
 }
