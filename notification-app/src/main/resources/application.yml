@@ -1,0 +1,49 @@
+server:
+  port: 8085
+
+spring:
+  application:
+    name: notification-service
+    
+  kafka:
+    bootstrap-servers: localhost:9092
+    consumer:
+      group-id: notification-group
+      auto-offset-reset: earliest
+      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      value-deserializer: org.springframework.kafka.support.serializer.JsonDeserializer
+      properties:
+        spring.json.trusted.packages: "com.paymentapp.dto.*,com.notificationapp.dto.*"
+        spring.json.type.mapping: "com.paymentapp.dto.PaymentEmailEvent:com.notificationapp.dto.email.PaymentEmailEvent"
+      
+  mail:
+    host: smtp.mail.ru
+    port: 587
+    username: aue64@list.ru
+    password: ELzys4is2e8x1H22cXuI
+    properties:
+      mail:
+        smtp:
+          auth: true
+          starttls:
+            enable: true
+
+kafka:
+  topic:
+    send-email: payment-email-events
+
+
+
+app:
+  user-service:
+    url: http://localhost:8081
+
+logging:
+  level:
+    com.notificationapp: DEBUG
+    org.springframework.web.socket: DEBUG
+
+jwt:
+  secret: "d4e5f6a7b8c9d0e1f2a3b4c5d6e7f8a9b0c1d2e3f4a5b6c7d8e9f0a1b2c3d4"
+  access-expiration-ms: 3600000
+  refresh-expiration-ms: 86400000

@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <title>WebSocket Тест + Push</title>
+  <script src="https://cdn.jsdelivr.net/npm/sockjs-client@1/dist/sockjs.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/stompjs@2.3.3/lib/stomp.min.js"></script>
+  <style>
+    body { font-family: sans-serif; padding: 20px; }
+    #messages { margin-top: 20px; }
+    .msg { background: #eef; margin: 5px 0; padding: 10px; border-radius: 5px; }
+  </style>
+</head>
+<body>
+  <h1> Уведомления через WebSocket </h1>
+  <div id="messages"></div>
+
+  <script>
+    if (Notification.permission !== "granted") {
+      Notification.requestPermission().then(function(permission) {
+        if (permission !== "granted") {
+          alert("Без разрешения push-уведомления не будут отображаться!");
+        }
+      });
+    }
+
+    const socket = new SockJS("http://localhost:8080/ws"); 
+    const stompClient = Stomp.over(socket);
+
+    stompClient.connect({}, function (frame) {
+      console.log(" Подключено: " + frame);
+
+      stompClient.subscribe("/topic/notifications", function (messageOutput) {
+        const msgData = JSON.parse(messageOutput.body);
+
+        const msgEl = document.createElement("div");
+        msgEl.className = "msg";
+        msgEl.textContent = ` Сообщение: ${msgData.message}`;
+        document.getElementById("messages").appendChild(msgEl);
+
+        if (Notification.permission === "granted") {
+          new Notification(" Новое уведомление", {
+            body: msgData.message,
+            icon: "https://cdn-icons-png.flaticon.com/512/1827/1827272.png" 
+          });
+        }
+      });
+    }, function (error) {
+      console.error(" Ошибка подключения:", error);
+    });
+  </script>
+</body>
+</html>

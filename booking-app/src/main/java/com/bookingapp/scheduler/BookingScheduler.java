@@ -28,10 +28,10 @@ public class BookingScheduler {
     @Scheduled(fixedRate = 60000)
     @Transactional
     public void cancelUnpaidBookings() {
-        LocalDateTime fifteenMinutesAgo = LocalDateTime.now().minusMinutes(15);
+        LocalDateTime fiveMinutesAgo = LocalDateTime.now().minusMinutes(5);
 
-        List<Booking> unpaidBookings = bookingService.findUnpaidBookingsOlderThan(fifteenMinutesAgo);
-        log.info("Found {} unpaid bookings older than 15 minutes", unpaidBookings.size());
+        List<Booking> unpaidBookings = bookingService.findUnpaidBookingsOlderThan(fiveMinutesAgo);
+        log.info("Found {} unpaid bookings older than 5 minutes", unpaidBookings.size());
 
         for (Booking booking : unpaidBookings) {
             try {

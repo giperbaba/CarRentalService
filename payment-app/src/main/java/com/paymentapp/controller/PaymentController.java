@@ -22,23 +22,26 @@ public class PaymentController {
     @PostMapping("/init")
     public ResponseEntity<PaymentResponseDto> initPayment(
             @RequestBody PaymentInitRequestDto request,
-            @RequestHeader(value = "X-User-ID", required = false) String userId) {
-        return ResponseEntity.ok(paymentService.initPayment(request));
+            @RequestHeader(value = "X-User-ID", required = false) String userId,
+            @RequestHeader(value = "X-Username", required = false) String email) {
+        return ResponseEntity.ok(paymentService.initPayment(request, email));
     }
 
     @PostMapping("/{id}/process")
     public ResponseEntity<PaymentResponseDto> processPayment(
             @PathVariable Long id,
             @RequestBody PaymentProcessRequestDto request,
-            @RequestHeader(value = "X-User-ID", required = false) String userId) {
-        return ResponseEntity.ok(paymentService.processPayment(id, request, userId));
+            @RequestHeader(value = "X-User-ID", required = false) String userId,
+            @RequestHeader(value = "X-Username", required = false) String email) {
+        return ResponseEntity.ok(paymentService.processPayment(id, request, userId, email));
     }
 
     @PostMapping("/{id}/cancel")
     public ResponseEntity<Void> cancelPayment(
             @PathVariable Long id,
-            @RequestHeader(value = "X-User-ID", required = false) String userId) {
-        paymentService.cancelPayment(id, userId);
+            @RequestHeader(value = "X-User-ID", required = false) String userId,
+            @RequestHeader(value = "X-Username", required = false) String email) {
+        paymentService.cancelPayment(id, userId, email);
         return ResponseEntity.ok().build();
     }
 

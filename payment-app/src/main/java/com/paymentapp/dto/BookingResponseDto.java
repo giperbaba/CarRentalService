@@ -1,5 +1,4 @@
 package com.paymentapp.dto;
-
 import lombok.Data;
 
 import java.math.BigDecimal;

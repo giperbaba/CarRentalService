@@ -29,7 +29,8 @@ public class AuthenticationFilter implements GlobalFilter, Ordered {
     private static final List<String> OPEN_ENDPOINTS = List.of(
             "/api/user/login",
             "/api/user/register",
-            "/api/user/refresh"
+            "/api/user/refresh",
+            "/ws"
     );
 
     private final JwtUtil jwtUtil;
@@ -49,7 +50,7 @@ public class AuthenticationFilter implements GlobalFilter, Ordered {
         logger.debug("Processing request: {} {}", request.getMethod(), path);
         logger.debug("Original headers: {}", request.getHeaders());
 
-        if (OPEN_ENDPOINTS.stream().anyMatch(path::endsWith)) {
+        if (OPEN_ENDPOINTS.stream().anyMatch(path::startsWith)) {
             logger.debug("Skipping authentication for open endpoint: {}", path);
             return chain.filter(exchange);
         }

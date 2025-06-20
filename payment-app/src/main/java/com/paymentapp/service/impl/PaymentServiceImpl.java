@@ -30,13 +30,18 @@ public class PaymentServiceImpl implements PaymentService {
 
     @Override
     @Transactional
-    public PaymentResponseDto initPayment(PaymentInitRequestDto request) {
+    public PaymentResponseDto initPayment(PaymentInitRequestDto request, String email) {
         log.info(LogMessages.PAYMENT_INIT, request.getBookingId());
         
         Payment payment = createInitialPayment(request);
         Payment savedPayment = paymentRepository.save(payment);
         
         log.info(LogMessages.PAYMENT_INIT_SUCCESS, savedPayment.getId());
+
+        if (!email.isEmpty()) {
+            paymentEventService.sendEmailEvent(new PaymentEmailEvent(email, "NEW"));
+        }
+
         return paymentMapper.toDto(savedPayment);
     }
 
@@ -59,7 +64,7 @@ public class PaymentServiceImpl implements PaymentService {
 
     @Override
     @Transactional
-    public PaymentResponseDto processPayment(Long id, PaymentProcessRequestDto request, String userId) {
+    public PaymentResponseDto processPayment(Long id, PaymentProcessRequestDto request, String userId, String email) {
         Payment payment = findPaymentById(id);
         validatePaymentStatus(payment);
         validatePaymentOwner(payment, userId);
@@ -70,6 +75,10 @@ public class PaymentServiceImpl implements PaymentService {
         Payment savedPayment = paymentRepository.save(processedPayment);
         
         notifyPaymentProcessed(savedPayment);
+
+        if (!email.isEmpty()) {
+            paymentEventService.sendEmailEvent(new PaymentEmailEvent(email, "SUCCESS"));
+        }
         
         log.info(LogMessages.PAYMENT_PROCESSED, savedPayment.getId());
         return paymentMapper.toDto(savedPayment);
@@ -77,13 +86,17 @@ public class PaymentServiceImpl implements PaymentService {
 
     @Override
     @Transactional
-    public PaymentResponseDto cancelPayment(Long id, String userId) {
+    public PaymentResponseDto cancelPayment(Long id, String userId, String email) {
         Payment payment = findPaymentById(id);
         validatePaymentOwner(payment, userId);
         validatePaymentForCancellation(payment);
 
         payment.setStatus(PaymentStatus.CANCELLED);
         Payment savedPayment = paymentRepository.save(payment);
+
+        if (!email.isEmpty()) {
+            paymentEventService.sendEmailEvent(new PaymentEmailEvent(email, "CANCELLED"));
+        }
         
         log.info(LogMessages.PAYMENT_CANCELLED, savedPayment.getId());
         return paymentMapper.toDto(savedPayment);
