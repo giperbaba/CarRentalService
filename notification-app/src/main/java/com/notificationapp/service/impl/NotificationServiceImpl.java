@@ -9,6 +9,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.mail.javamail.JavaMailSender;
 import com.notificationapp.dto.PaymentEmailEvent;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.mail.MailException;
 import org.springframework.mail.SimpleMailMessage;
 
 @Slf4j
@@ -60,12 +61,17 @@ public class NotificationServiceImpl implements NotificationService {
     }
 
     private void sendEmailByEvent(String to, String subject, String text) {
-        SimpleMailMessage message = new SimpleMailMessage();
-        message.setFrom(fromEmail);
-        message.setTo(to);
-        message.setSubject(subject);
-        message.setText(text);
-        emailSender.send(message);
+        try {
+            SimpleMailMessage message = new SimpleMailMessage();
+            message.setFrom(fromEmail);
+            message.setTo(to);
+            message.setSubject(subject);
+            message.setText(text);
+            emailSender.send(message);
+            log.info("Email notification sent successfully to {}", to);
+        } catch (MailException e) {
+            log.error("Failed to send email to {}: {}", to, e.getMessage());
+        }
     }
 
     @Override

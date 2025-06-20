@@ -25,6 +25,17 @@ import java.util.List;
 import java.util.Map;
 import java.util.HashMap;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import jakarta.servlet.Filter;
+import jakarta.servlet.FilterChain;
+import jakarta.servlet.ServletException;
+import jakarta.servlet.ServletRequest;
+import jakarta.servlet.ServletResponse;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.core.annotation.Order;
+import org.springframework.stereotype.Component;
+import java.io.IOException;
 
 @Configuration
 @EnableWebSecurity
@@ -38,6 +49,8 @@ public class SecurityConfig {
     private final JwtAuthenticationEntryPoint authenticationEntryPoint;
     private final TokenValidationFilter tokenValidationFilter;
     private final ObjectMapper objectMapper;
+    @Value("${app.internal-secret}")
+    private String internalSecret;
 
     public SecurityConfig(JwtAuthenticationEntryPoint authenticationEntryPoint,
                         TokenValidationFilter tokenValidationFilter,
@@ -99,6 +112,7 @@ public class SecurityConfig {
             .authorizeHttpRequests(auth -> auth
                 .requestMatchers("/error").permitAll()
                 .requestMatchers("/api/cars/{id}/available").permitAll()
+                .requestMatchers("/api/cars/{id}/status").permitAll()
                 .anyRequest().authenticated());
 
         return http.build();

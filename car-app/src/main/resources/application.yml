@@ -62,3 +62,6 @@ logging:
     org.springframework.web: DEBUG
     com.carapp: DEBUG
     root: INFO
+
+app:
+  internal-secret: "my-super-secret-giperbaba-aeaeaeae-64"

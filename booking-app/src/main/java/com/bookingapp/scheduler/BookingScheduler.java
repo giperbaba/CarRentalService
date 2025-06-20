@@ -12,6 +12,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.beans.factory.annotation.Value;
 
 import java.time.LocalDateTime;
 import java.util.List;
@@ -25,6 +26,9 @@ public class BookingScheduler {
     private final CarServiceClient carServiceClient;
     private final PaymentServiceClient paymentServiceClient;
 
+    @Value("${app.internal-secret}")
+    private String internalSecret;
+
     @Scheduled(fixedRate = 60000)
     @Transactional
     public void cancelUnpaidBookings() {
@@ -37,14 +41,10 @@ public class BookingScheduler {
             try {
                 log.info("Cancelling unpaid booking: {}", booking.getId());
 
-                if (booking.getPaymentId() != null) {
-                    paymentServiceClient.cancelPayment(booking.getPaymentId());
-                }
-
                 CarBookingStatusRequest request = CarBookingStatusRequest.builder()
                         .status(CarStatus.AVAILABLE)
                         .build();
-                carServiceClient.updateCarStatus(booking.getCarId(), request);
+                carServiceClient.updateCarStatusWithSecret(booking.getCarId(), request, internalSecret);
 
                 booking.setStatus(BookingStatus.CANCELLED);
                 bookingService.save(booking);

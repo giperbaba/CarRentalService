@@ -3,7 +3,6 @@ package com.bookingapp.service;
 import com.bookingapp.domain.Booking;
 import com.bookingapp.dto.booking.BookingRequestDto;
 import com.bookingapp.dto.booking.BookingResponseDto;
-import com.bookingapp.domain.enums.PaymentMethod;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.UUID;

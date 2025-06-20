@@ -22,4 +22,7 @@ public interface CarServiceClient {
 
     @PutMapping("/api/cars/{id}/status")
     void updateCarStatus(@PathVariable UUID id, @RequestBody CarBookingStatusRequest request);
+
+    @PutMapping("/api/cars/{id}/status")
+    void updateCarStatusWithSecret(@PathVariable UUID id, @RequestBody CarBookingStatusRequest request, @RequestHeader("X-Internal-Secret") String secret);
 } 

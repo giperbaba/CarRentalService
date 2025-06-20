@@ -22,13 +22,11 @@ public class FeignConfig {
             if (attributes != null) {
                 HttpServletRequest request = attributes.getRequest();
                 
-                // Передаем токен авторизации
                 String authHeader = request.getHeader("Authorization");
                 if (authHeader != null) {
                     requestTemplate.header("Authorization", authHeader);
                 }
 
-                // Передаем заголовки с информацией о пользователе
                 String userId = request.getHeader("X-User-ID");
                 String roles = request.getHeader("X-Roles");
                 String username = request.getHeader("X-Username");
@@ -43,7 +41,6 @@ public class FeignConfig {
                     requestTemplate.header("X-Username", username);
                 }
 
-                // Если заголовки не были переданы в запросе, берем из контекста безопасности
                 Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
                 if (authentication != null && authentication.isAuthenticated()) {
                     if (userId == null) {

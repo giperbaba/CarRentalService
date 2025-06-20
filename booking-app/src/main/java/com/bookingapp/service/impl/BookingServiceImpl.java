@@ -41,7 +41,6 @@ public class BookingServiceImpl implements BookingService {
     private final BookingMapper bookingMapper;
     private final CarServiceClient carServiceClient;
     private final PaymentServiceClient paymentServiceClient;
-    private final BookingEventService bookingEventService;
 
     @Value("${booking.payment.timeout-minutes}")
     private int paymentTimeoutMinutes;
@@ -317,4 +316,4 @@ public class BookingServiceImpl implements BookingService {
     public List<Booking> findUnpaidBookingsOlderThan(LocalDateTime time) {
         return bookingRepository.findByStatusAndCreatedAtBefore(BookingStatus.PENDING_PAYMENT, time);
     }
-} 
+}

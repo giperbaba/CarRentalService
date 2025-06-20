@@ -80,3 +80,6 @@ management:
 feign:
   circuitbreaker:
     enabled: true
+
+app:
+  internal-secret: "my-super-secret-giperbaba-aeaeaeae-64"
