@@ -22,7 +22,6 @@ public class HeaderPropagationFilter extends AbstractGatewayFilterFactory<Header
         return (exchange, chain) -> {
             ServerHttpRequest request = exchange.getRequest();
             
-            // Extract user information from headers
             String userId = request.getHeaders().getFirst("X-User-ID");
             String roles = request.getHeaders().getFirst("X-Roles");
             String username = request.getHeaders().getFirst("X-Username");
@@ -35,7 +34,6 @@ public class HeaderPropagationFilter extends AbstractGatewayFilterFactory<Header
                 return exchange.getResponse().setComplete();
             }
 
-            // Create a new request with the propagated headers
             ServerHttpRequest modifiedRequest = request.mutate()
                     .header("X-User-ID", userId)
                     .header("X-Roles", roles)

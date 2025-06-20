@@ -9,11 +9,9 @@ import com.bookingapp.dto.booking.BookingRequestDto;
 import com.bookingapp.dto.booking.BookingResponseDto;
 import com.bookingapp.dto.car.CarBookingStatusRequest;
 import com.bookingapp.dto.payment.*;
-import com.bookingapp.event.BookingEventType;
 import com.bookingapp.exception.BookingException;
 import com.bookingapp.mapper.BookingMapper;
 import com.bookingapp.repository.BookingRepository;
-import com.bookingapp.service.BookingEventService;
 import com.bookingapp.service.BookingService;
 import com.bookingapp.enums.CarStatus;
 import lombok.RequiredArgsConstructor;
@@ -31,6 +29,10 @@ import java.time.temporal.ChronoUnit;
 import java.util.List;
 import java.util.UUID;
 import java.util.Collections;
+
+import static com.bookingapp.constant.BookingConstants.ErrorMessages.*;
+import static com.bookingapp.constant.BookingConstants.LogMessages;
+import static com.bookingapp.constant.BookingConstants.Security.ROLE_ADMIN;
 
 @Slf4j
 @Service
@@ -51,7 +53,7 @@ public class BookingServiceImpl implements BookingService {
         validateBookingRequest(request);
 
         if (!carServiceClient.isCarAvailable(request.getCarId())) {
-            throw new BookingException(BookingConstants.ErrorMessages.CAR_NOT_AVAILABLE);
+            throw new BookingException(CAR_NOT_AVAILABLE);
         }
 
         Booking booking = bookingMapper.toEntity(request);
@@ -72,7 +74,7 @@ public class BookingServiceImpl implements BookingService {
             paymentRequest.setCarId(request.getCarId());
 
             PaymentResponseDto payment = paymentServiceClient.initPayment(paymentRequest);
-            log.info("Payment initialized for booking: {}, paymentId: {}", savedBooking.getId(), payment.getId());
+            log.info(LogMessages.PAYMENT_INITIALIZED, savedBooking.getId(), payment.getId());
 
             savedBooking.setPaymentId(payment.getId());
 
@@ -82,16 +84,16 @@ public class BookingServiceImpl implements BookingService {
                         .build());
             }
             catch (Exception e) {
-                throw new BookingException("Failed to update car status: " + e.getMessage());
+                throw new BookingException(FAILED_TO_UPDATE_CAR_STATUS + e.getMessage());
             }
             return bookingMapper.toDto(savedBooking);
 
         } catch (Exception e) {
-            log.error("Error during booking creation: {}", e.getMessage());
+            log.error(LogMessages.BOOKING_CREATION_ERROR, e.getMessage());
 
             savedBooking.setStatus(BookingStatus.CANCELLED);
             bookingRepository.save(savedBooking);
-            throw new BookingException("Failed to create booking: " + e.getMessage());
+            throw new BookingException(FAILED_TO_CREATE_BOOKING + e.getMessage());
         }
     }
 
@@ -103,12 +105,11 @@ public class BookingServiceImpl implements BookingService {
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
         boolean isAdmin = authentication != null && 
                 authentication.getAuthorities().stream()
-                        .anyMatch(a -> a.getAuthority().equals("ROLE_ADMIN"));
+                        .anyMatch(a -> a.getAuthority().equals(ROLE_ADMIN));
 
         if (!isAdmin && !booking.getUserId().equals(userId)) {
-            log.warn("Access denied: bookingId={}, bookingUserId={}, requestUserId={}", 
-                    id, booking.getUserId(), userId);
-            throw new BookingException(BookingConstants.ErrorMessages.ACCESS_DENIED);
+            log.warn(LogMessages.ACCESS_DENIED, id, booking.getUserId(), userId);
+            throw new BookingException(ACCESS_DENIED);
         }
         
         return bookingMapper.toDto(booking);
@@ -137,11 +138,11 @@ public class BookingServiceImpl implements BookingService {
     public BookingResponseDto completeBooking(Long id, UUID userId) {
         Booking booking = findBookingById(id);
         if (!booking.getUserId().equals(userId)) {
-            throw new BookingException(BookingConstants.ErrorMessages.ACCESS_DENIED);
+            throw new BookingException(ACCESS_DENIED);
         }
         
         if (booking.getStatus() != BookingStatus.CONFIRMED) {
-            throw new BookingException(BookingConstants.ErrorMessages.BOOKING_MUST_BE_CONFIRMED);
+            throw new BookingException(BOOKING_MUST_BE_CONFIRMED);
         }
 
         booking.setStatus(BookingStatus.COMPLETED);
@@ -158,7 +159,7 @@ public class BookingServiceImpl implements BookingService {
                     .status(CarStatus.AVAILABLE)
                     .build());
         } catch (Exception e) {
-            log.error("Failed to update car status for booking: {}", booking.getId(), e);
+            log.error(LogMessages.FAILED_TO_UPDATE_CAR_STATUS, booking.getId(), e);
         }
         
         return bookingMapper.toDto(savedBooking);
@@ -169,11 +170,11 @@ public class BookingServiceImpl implements BookingService {
     public BookingResponseDto cancelBooking(Long id, UUID userId) {
         Booking booking = findBookingById(id);
         if (!booking.getUserId().equals(userId)) {
-            throw new BookingException(BookingConstants.ErrorMessages.ACCESS_DENIED);
+            throw new BookingException(ACCESS_DENIED);
         }
         
         if (booking.getStatus() != BookingStatus.PENDING_PAYMENT) {
-            throw new BookingException(BookingConstants.ErrorMessages.CANNOT_CANCEL_COMPLETED);
+            throw new BookingException(CANNOT_CANCEL_COMPLETED);
         }
 
         booking.setStatus(BookingStatus.CANCELLED);
@@ -189,7 +190,7 @@ public class BookingServiceImpl implements BookingService {
                     .status(CarStatus.AVAILABLE)
                     .build());
         } catch (Exception e) {
-            log.error("Failed to update car status for booking: {}", booking.getId(), e);
+            log.error(LogMessages.FAILED_TO_UPDATE_CAR_STATUS, booking.getId(), e);
         }
         
         return bookingMapper.toDto(savedBooking);
@@ -197,11 +198,11 @@ public class BookingServiceImpl implements BookingService {
 
     private void validateBookingRequest(BookingRequestDto request) {
         if (request.getEndDate().isBefore(request.getStartDate())) {
-            throw new BookingException(BookingConstants.ErrorMessages.END_DATE_BEFORE_START);
+            throw new BookingException(END_DATE_BEFORE_START);
         }
 
         if (request.getStartDate().isBefore(LocalDateTime.now())) {
-            throw new BookingException(BookingConstants.ErrorMessages.START_DATE_IN_PAST);
+            throw new BookingException(START_DATE_IN_PAST);
         }
 
         List<Booking> overlappingBookings = bookingRepository.findOverlappingBookings(
@@ -213,7 +214,7 @@ public class BookingServiceImpl implements BookingService {
         );
 
         if (!overlappingBookings.isEmpty()) {
-            throw new BookingException(BookingConstants.ErrorMessages.CAR_ALREADY_BOOKED);
+            throw new BookingException(CAR_ALREADY_BOOKED);
         }
     }
 
@@ -225,22 +226,14 @@ public class BookingServiceImpl implements BookingService {
         return pricePerDay.multiply(BigDecimal.valueOf(days));
     }
 
-    private BigDecimal calculateTotalPrice(LocalDateTime startDate, LocalDateTime endDate, BigDecimal pricePerDay) {
-        long days = ChronoUnit.DAYS.between(startDate, endDate);
-        if (days < 1) {
-            days = 1;
-        }
-        return pricePerDay.multiply(BigDecimal.valueOf(days));
-    }
-
     private Booking findBookingById(Long id) {
         return bookingRepository.findById(id)
                 .orElseThrow(() -> new BookingException(
-                    String.format(BookingConstants.ErrorMessages.BOOKING_NOT_FOUND, id)
+                    String.format(BOOKING_NOT_FOUND, id)
                 ));
     }
 
-    @Scheduled(fixedRate = 60000) // Run every minute
+    @Scheduled(fixedRate = 60000)
     @Transactional
     public void processExpiredBookings() {
         try {
@@ -249,7 +242,7 @@ public class BookingServiceImpl implements BookingService {
             
             for (Booking booking : expiredBookings) {
                 try {
-                    log.info("Processing expired booking: id={}", booking.getId());
+                    log.info(LogMessages.PROCESSING_EXPIRED_BOOKING, booking.getId());
                     
                     booking.setStatus(BookingStatus.CANCELLED);
                     bookingRepository.save(booking);
@@ -257,7 +250,7 @@ public class BookingServiceImpl implements BookingService {
                     try {
                         paymentServiceClient.cancelPayment(booking.getPaymentId());
                     } catch (Exception e) {
-                        log.error("Failed to cancel payment for booking: {}", booking.getId(), e);
+                        log.error(LogMessages.FAILED_TO_CANCEL_PAYMENT, booking.getId(), e);
                     }
                     
                     try {
@@ -265,16 +258,16 @@ public class BookingServiceImpl implements BookingService {
                                 .status(CarStatus.AVAILABLE)
                                 .build());
                     } catch (Exception e) {
-                        log.error("Failed to update car status for booking: {}", booking.getId(), e);
+                        log.error(LogMessages.FAILED_TO_UPDATE_CAR_STATUS, booking.getId(), e);
                     }
                     
                 } catch (Exception e) {
-                    log.error("Error processing expired booking: id={}, error={}", 
+                    log.error(LogMessages.ERROR_PROCESSING_EXPIRED_BOOKING, 
                             booking.getId(), e.getMessage());
                 }
             }
         } catch (Exception e) {
-            log.error("Error in processExpiredBookings: {}", e.getMessage());
+            log.error(LogMessages.PROCESS_EXPIRED_BOOKINGS_ERROR, e.getMessage());
         }
     }
 

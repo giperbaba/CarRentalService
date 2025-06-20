@@ -41,6 +41,22 @@ public final class ValidationConstants {
     public static final String INVALID_STATUS_UPDATE = "Car status can only be changed to AVAILABLE or MAINTENANCE";
     public static final String CAR_STATUS_CHANGE_NOT_ALLOWED = "Car status can only be changed when car is AVAILABLE or in MAINTENANCE";
     public static final String LICENSE_PLATE_EXISTS = "Car with this license plate already exists";
+    public static final String INVALID_MAINTENANCE_STATUS_UPDATE = "Invalid maintenance status update. Only MAINTENANCE and AVAILABLE statuses are allowed.";
+    public static final String MAINTENANCE_STATUS_CHANGE_NOT_ALLOWED = "Car status change not allowed. Current status must be either MAINTENANCE or AVAILABLE.";
+    public static final String INVALID_BOOKING_STATUS_UPDATE = "Invalid booking status update. Only BOOKED, RENTED and AVAILABLE statuses are allowed.";
+    public static final String BOOKING_STATUS_CHANGE_NOT_ALLOWED = "Car status change not allowed. Car is under maintenance or unavailable.";
 
     public static final String DATETIME_FORMAT = "yyyy-MM-dd HH:mm:ss";
+
+    public static final class LogMessages {
+        private LogMessages() {}
+        public static final String CAR_CREATED = "Created new car with ID: {}";
+        public static final String CAR_UPDATED = "Updated car with ID: {}";
+        public static final String CAR_MAINTENANCE_STATUS_UPDATED = "Car with ID {} maintenance status has been updated to {}";
+    }
+
+    public static final class Security {
+        private Security() {}
+        public static final String ROLE_ADMIN = "ROLE_ADMIN";
+    }
 } 

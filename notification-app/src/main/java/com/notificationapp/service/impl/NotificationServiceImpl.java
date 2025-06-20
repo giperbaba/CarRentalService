@@ -12,6 +12,11 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.mail.MailException;
 import org.springframework.mail.SimpleMailMessage;
 
+import static com.notificationapp.constant.NotificationConstants.EmailMessages.*;
+import static com.notificationapp.constant.NotificationConstants.EmailSubjects.*;
+import static com.notificationapp.constant.NotificationConstants.LogMessages.*;
+import static com.notificationapp.constant.NotificationConstants.PaymentStatus.*;
+
 @Slf4j
 @Service
 @RequiredArgsConstructor
@@ -23,33 +28,27 @@ public class NotificationServiceImpl implements NotificationService {
     private String fromEmail;
 
     @Override
-    public void sendNotification(NotificationMessage notification) {
-        sendWebSocketNotification(notification);
-        sendEmailNotification(notification);
-    }
-
-    @Override
     public void processPaymentEvent(PaymentEmailEvent event) {
         String status = event.getStatus();
         String email = event.getEmail();
         String subject;
         String text;
         switch (status) {
-            case "NEW":
-                subject = "Новая оплата";
-                text = "Ваша оплата создана и ожидает подтверждения.";
+            case NEW:
+                subject = NEW_PAYMENT;
+                text = NEW_PAYMENT_BODY;
                 break;
-            case "SUCCESS":
-                subject = "Оплата успешна";
-                text = "Ваша оплата прошла успешно. Спасибо!";
+            case SUCCESS:
+                subject = SUCCESSFUL_PAYMENT;
+                text = SUCCESSFUL_PAYMENT_BODY;
                 break;
-            case "CANCELLED":
-                subject = "Оплата отменена";
-                text = "Ваша оплата была отменена.";
+            case CANCELLED:
+                subject = CANCELLED_PAYMENT;
+                text = CANCELLED_PAYMENT_BODY;
                 break;
             default:
-                subject = "Статус оплаты обновлен";
-                text = "Статус вашей оплаты: " + status;
+                subject = UPDATED_PAYMENT_STATUS;
+                text = UPDATED_PAYMENT_STATUS_BODY_PREFIX + status;
         }
 
         sendEmailByEvent(email, subject, text);
@@ -68,16 +67,16 @@ public class NotificationServiceImpl implements NotificationService {
             message.setSubject(subject);
             message.setText(text);
             emailSender.send(message);
-            log.info("Email notification sent successfully to {}", to);
+            log.info(EMAIL_SENT_SUCCESS, to);
         } catch (MailException e) {
-            log.error("Failed to send email to {}: {}", to, e.getMessage());
+            log.error(EMAIL_SEND_FAILURE, to, e.getMessage());
         }
     }
 
     @Override
     public void sendEmailNotification(NotificationMessage notification) {
         if (notification.getEmail() != null && notification.getMessage() != null) {
-            sendEmailByEvent(notification.getEmail(), "Уведомление", notification.getMessage());
+            sendEmailByEvent(notification.getEmail(), GENERIC_NOTIFICATION, notification.getMessage());
         }
     }
 

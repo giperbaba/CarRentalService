@@ -81,29 +81,21 @@ public class UserService implements IUserService {
     }
 
     public ResponseEntity<AuthResponseDto> register(UserRegisterRequestDto registerRequest) {
-        logger.info("Starting registration process for email: {}", registerRequest.email());
 
         if (userRepository.findByEmail(registerRequest.email()).isPresent()) {
-            logger.warn("Registration failed: email already exists - {}", registerRequest.email());
             throw new BadCredentialsException(USER_ALREADY_EXISTS);
         }
 
-        logger.debug("Creating new user from registration request");
         User newUser = createUserFromRegistration(registerRequest);
 
-        logger.debug("Assigning default role to new user");
         assignDefaultRole(newUser);
 
-        logger.debug("Saving new user to database");
         userRepository.save(newUser);
 
-        logger.debug("Authenticating new user");
         Authentication authentication = authenticateUser(newUser.getEmail(), registerRequest.password());
         
-        logger.debug("Generating tokens for new user");
         AuthResponseDto authResponse = generateAndSaveTokens(authentication, newUser);
 
-        logger.info("Successfully registered new user with email: {}", registerRequest.email());
         return ResponseEntity.ok(authResponse);
     }
 
