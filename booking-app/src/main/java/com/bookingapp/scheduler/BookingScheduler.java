@@ -6,7 +6,7 @@ import com.bookingapp.domain.Booking;
 import com.bookingapp.domain.enums.BookingStatus;
 import com.bookingapp.dto.car.CarBookingStatusRequest;
 import com.bookingapp.service.BookingService;
-import com.carapp.enums.CarStatus;
+import com.bookingapp.enums.CarStatus;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.scheduling.annotation.Scheduled;

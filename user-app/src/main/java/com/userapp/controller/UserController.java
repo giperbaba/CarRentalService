@@ -4,6 +4,7 @@ import com.userapp.dto.request.AuthRequestDto;
 import com.userapp.dto.request.RefreshTokenRequestDto;
 import com.userapp.dto.request.UserRegisterRequestDto;
 import com.userapp.dto.request.UserUpdateRequestDto;
+import com.userapp.dto.response.AuthResponseDto;
 import com.userapp.dto.response.UserResponseDto;
 import com.userapp.service.IUserService;
 import com.userapp.service.UserService;
@@ -27,40 +28,40 @@ public class UserController {
     }
 
     @PostMapping("/login")
-    public ResponseEntity<?> login(@RequestBody AuthRequestDto authRequest) {
+    public ResponseEntity<AuthResponseDto> login(@RequestBody AuthRequestDto authRequest) {
         return userService.login(authRequest);
     }
 
     @PostMapping("/register")
-    public ResponseEntity<?> register(@Valid @RequestBody UserRegisterRequestDto registerRequest) {
+    public ResponseEntity<AuthResponseDto> register(@Valid @RequestBody UserRegisterRequestDto registerRequest) {
         return userService.register(registerRequest);
     }
 
     @PostMapping("/refresh")
-    public ResponseEntity<?> refresh(@RequestBody RefreshTokenRequestDto refreshTokenRequest) {
+    public ResponseEntity<AuthResponseDto> refresh(@RequestBody RefreshTokenRequestDto refreshTokenRequest) {
         return userService.refresh(refreshTokenRequest);
     }
 
     @PostMapping("/logout")
-    public ResponseEntity<?> logout(HttpServletRequest request) {
+    public ResponseEntity<String> logout(HttpServletRequest request) {
         return userService.logout(request);
     }
 
     @GetMapping("/profile")
     @PreAuthorize("isAuthenticated()")
-    public ResponseEntity<?> getMyProfile() {
+    public ResponseEntity<UserResponseDto> getMyProfile() {
         return userService.getMyProfile();
     }
 
     @GetMapping("/profile/{userId}")
     @PreAuthorize("hasRole('ADMIN')")
-    public ResponseEntity<?> getUserProfile(@PathVariable UUID userId) {
+    public ResponseEntity<UserResponseDto> getUserProfile(@PathVariable UUID userId) {
         return userService.getUserProfile(userId);
     }
 
     @PutMapping("/profile/update")
     @PreAuthorize("isAuthenticated()")
-    public ResponseEntity<?> updateMyProfile(@Valid @RequestBody UserUpdateRequestDto updateRequest) {
+    public ResponseEntity<UserResponseDto> updateMyProfile(@Valid @RequestBody UserUpdateRequestDto updateRequest) {
         return userService.updateMyProfile(updateRequest);
     }
 
@@ -72,7 +73,7 @@ public class UserController {
 
     @DeleteMapping("/profile/{userId}")
     @PreAuthorize("hasRole('ADMIN')")
-    public ResponseEntity<?> deactivateUser(@PathVariable UUID userId) {
+    public ResponseEntity<String> deactivateUser(@PathVariable UUID userId) {
         return userService.deactivateUser(userId);
     }
 }

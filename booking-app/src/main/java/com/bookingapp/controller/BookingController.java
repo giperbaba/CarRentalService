@@ -3,6 +3,8 @@ package com.bookingapp.controller;
 import com.bookingapp.dto.booking.BookingRequestDto;
 import com.bookingapp.dto.booking.BookingResponseDto;
 import com.bookingapp.service.BookingService;
+import io.swagger.v3.oas.annotations.Parameter;
+import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -14,13 +16,14 @@ import java.util.UUID;
 @RestController
 @RequestMapping("/api/bookings")
 @RequiredArgsConstructor
+@SecurityRequirement(name = "bearerAuth")
 public class BookingController {
     private final BookingService bookingService;
 
     @PostMapping
     public ResponseEntity<BookingResponseDto> createBooking(
             @RequestBody BookingRequestDto request,
-            @RequestHeader("X-User-ID") String userId
+            @Parameter(hidden = true) @RequestHeader("X-User-ID") String userId
     ) {
         return ResponseEntity.ok(bookingService.createBooking(UUID.fromString(userId), request));
     }
@@ -28,7 +31,7 @@ public class BookingController {
     @GetMapping("/{id}")
     public ResponseEntity<BookingResponseDto> getBooking(
             @PathVariable Long id,
-            @RequestHeader("X-User-ID") String userId
+            @Parameter(hidden = true) @RequestHeader("X-User-ID") String userId
     ) {
         UUID userUuid = UUID.fromString(userId);
         return ResponseEntity.ok(bookingService.getBooking(id, userUuid));
@@ -36,7 +39,7 @@ public class BookingController {
 
     @GetMapping("/my")
     public ResponseEntity<List<BookingResponseDto>> getCurrentUserRentals(
-            @RequestHeader("X-User-ID") String userId
+            @Parameter(hidden = true) @RequestHeader("X-User-ID") String userId
     ) {
         return ResponseEntity.ok(bookingService.getUserBookings(UUID.fromString(userId)));
     }
@@ -60,7 +63,7 @@ public class BookingController {
     @PostMapping("/{id}/complete")
     public ResponseEntity<BookingResponseDto> completeBooking( // закончить аренду
             @PathVariable Long id,
-            @RequestHeader("X-User-ID") String userId
+            @Parameter(hidden = true) @RequestHeader("X-User-ID") String userId
     ) {
         return ResponseEntity.ok(bookingService.completeBooking(id, UUID.fromString(userId)));
     }
@@ -68,7 +71,7 @@ public class BookingController {
     @PostMapping("/{id}/confirm")
     public ResponseEntity<BookingResponseDto> confirmBooking( // начать аренду
             @PathVariable Long id,
-            @RequestHeader("X-User-ID") String userId,
+            @Parameter(hidden = true) @RequestHeader("X-User-ID") String userId,
             @RequestParam(required = false) Long paymentId) {
         return ResponseEntity.ok(bookingService.confirmBooking(id, UUID.fromString(userId), paymentId));
     }

@@ -19,7 +19,7 @@ public interface BookingRepository extends JpaRepository<Booking, Long> {
 
     @Query("SELECT b FROM Booking b WHERE b.status = :status AND b.createdAt < :timeout")
     List<Booking> findExpiredBookings(
-            @Param("status") BookingStatus status, 
+            @Param("status") BookingStatus status,
             @Param("timeout") LocalDateTime timeout
     );
 

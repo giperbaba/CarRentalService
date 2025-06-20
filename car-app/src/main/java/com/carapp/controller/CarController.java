@@ -2,6 +2,7 @@ package com.carapp.controller;
 
 import com.carapp.dto.*;
 import com.carapp.service.ICarService;
+import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
@@ -14,6 +15,7 @@ import java.util.UUID;
 @RestController
 @RequestMapping("/api/cars")
 @RequiredArgsConstructor
+@SecurityRequirement(name = "bearerAuth")
 public class CarController {
     private final ICarService carService;
 

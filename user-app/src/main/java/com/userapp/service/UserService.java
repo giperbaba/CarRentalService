@@ -13,6 +13,7 @@ import com.userapp.entity.Role;
 import com.userapp.entity.User;
 import com.userapp.enums.UserRole;
 import com.userapp.exception.DeactivatedUserException;
+import com.userapp.exception.UserAlreadyDeactivatedException;
 import com.userapp.mapper.UserMapper;
 import com.userapp.repository.IRefreshTokenRepository;
 import com.userapp.repository.IRoleRepository;
@@ -64,7 +65,7 @@ public class UserService implements IUserService {
         this.passwordEncoder = passwordEncoder;
     }
 
-    public ResponseEntity<?> login(AuthRequestDto authRequest) {
+    public ResponseEntity<AuthResponseDto> login(AuthRequestDto authRequest) {
         try {
             Authentication authentication = authenticateUser(authRequest.login(), authRequest.password());
             User user = (User) authentication.getPrincipal();
@@ -72,52 +73,42 @@ public class UserService implements IUserService {
             invalidateUserRefreshTokens(user);
             AuthResponseDto authResponse = generateAndSaveTokens(authentication, user);
             return ResponseEntity.ok(authResponse);
-        } catch (DeactivatedUserException e) {
-            return buildErrorResponse(HttpStatus.FORBIDDEN, USER_ACCOUNT_DEACTIVATED);
-        } catch (BadCredentialsException e) {
-            return buildErrorResponse(HttpStatus.UNAUTHORIZED, INVALID_CREDENTIALS_OR_LOGIN_ERROR);
+        } catch (DeactivatedUserException | BadCredentialsException e) {
+            throw e;
         } catch (Exception ex) {
-            return buildErrorResponse(HttpStatus.UNAUTHORIZED, INVALID_CREDENTIALS_OR_LOGIN_ERROR);
+            throw new BadCredentialsException(INVALID_CREDENTIALS_OR_LOGIN_ERROR, ex);
         }
     }
 
-    public ResponseEntity<?> register(UserRegisterRequestDto registerRequest) {
-        try {
-            logger.info("Starting registration process for email: {}", registerRequest.email());
+    public ResponseEntity<AuthResponseDto> register(UserRegisterRequestDto registerRequest) {
+        logger.info("Starting registration process for email: {}", registerRequest.email());
 
-            if (userRepository.findByEmail(registerRequest.email()).isPresent()) {
-                logger.warn("Registration failed: email already exists - {}", registerRequest.email());
-                return buildErrorResponse(HttpStatus.CONFLICT, USER_ALREADY_EXISTS);
-            }
-
-            logger.debug("Creating new user from registration request");
-            User newUser = createUserFromRegistration(registerRequest);
-
-            logger.debug("Assigning default role to new user");
-            assignDefaultRole(newUser);
-
-            logger.debug("Saving new user to database");
-            userRepository.save(newUser);
-
-            logger.debug("Authenticating new user");
-            Authentication authentication = authenticateUser(newUser.getEmail(), registerRequest.password());
-            
-            logger.debug("Generating tokens for new user");
-            AuthResponseDto authResponse = generateAndSaveTokens(authentication, newUser);
-
-            logger.info("Successfully registered new user with email: {}", registerRequest.email());
-            return ResponseEntity.ok(authResponse);
-        } catch (IllegalStateException ex) {
-            logger.error("Registration failed due to missing default role", ex);
-            return buildErrorResponse(HttpStatus.INTERNAL_SERVER_ERROR, DEFAULT_ROLE_NOT_FOUND);
-        } catch (Exception ex) {
-            logger.error("Registration failed with unexpected error", ex);
-            return buildErrorResponse(HttpStatus.BAD_REQUEST, REGISTRATION_FAILED + ": " + ex.getMessage());
+        if (userRepository.findByEmail(registerRequest.email()).isPresent()) {
+            logger.warn("Registration failed: email already exists - {}", registerRequest.email());
+            throw new BadCredentialsException(USER_ALREADY_EXISTS);
         }
+
+        logger.debug("Creating new user from registration request");
+        User newUser = createUserFromRegistration(registerRequest);
+
+        logger.debug("Assigning default role to new user");
+        assignDefaultRole(newUser);
+
+        logger.debug("Saving new user to database");
+        userRepository.save(newUser);
+
+        logger.debug("Authenticating new user");
+        Authentication authentication = authenticateUser(newUser.getEmail(), registerRequest.password());
+        
+        logger.debug("Generating tokens for new user");
+        AuthResponseDto authResponse = generateAndSaveTokens(authentication, newUser);
+
+        logger.info("Successfully registered new user with email: {}", registerRequest.email());
+        return ResponseEntity.ok(authResponse);
     }
 
     @Transactional
-    public ResponseEntity<?> refresh(RefreshTokenRequestDto refreshTokenRequest) {
+    public ResponseEntity<AuthResponseDto> refresh(RefreshTokenRequestDto refreshTokenRequest) {
         try {
             RefreshToken validRefreshTokenEntity = validateAndRetrieveRefreshToken(refreshTokenRequest.refreshToken());
             User user = validRefreshTokenEntity.getUser();
@@ -126,12 +117,12 @@ public class UserService implements IUserService {
 
             return ResponseEntity.ok(authResponse);
         } catch (Exception ex) {
-            return buildErrorResponse(HttpStatus.UNAUTHORIZED, INVALID_REFRESH_TOKEN);
+            throw new BadCredentialsException(INVALID_REFRESH_TOKEN);
         }
     }
 
     @Transactional
-    public ResponseEntity<?> logout(HttpServletRequest request) {
+    public ResponseEntity<String> logout(HttpServletRequest request) {
         try {
             String token = extractTokenFromRequest(request);
             if (token != null) {
@@ -140,48 +131,48 @@ public class UserService implements IUserService {
                 refreshTokenRepository.deleteByUserEmail(email);
                 return ResponseEntity.ok(LOGOUT_SUCCESS);
             }
-            return buildErrorResponse(HttpStatus.BAD_REQUEST, TOKEN_EXTRACTION_FAILED);
+            throw new BadCredentialsException(TOKEN_EXTRACTION_FAILED);
         } catch (Exception ex) {
-            return buildErrorResponse(HttpStatus.BAD_REQUEST, LOGOUT_FAILED);
+            return new ResponseEntity(LOGOUT_FAILED, HttpStatus.BAD_REQUEST);
         }
     }
 
-    public ResponseEntity<?> getMyProfile() {
+    public ResponseEntity<UserResponseDto> getMyProfile() {
         try {
             User currentUser = findAuthenticatedUser();
             return ResponseEntity.ok(userMapper.userToUserResponseDto(currentUser));
         } catch (Exception ex) {
-            return buildErrorResponse(HttpStatus.INTERNAL_SERVER_ERROR, USER_PROFILE_RETRIEVAL_FAILED);
+            throw new BadCredentialsException(USER_PROFILE_RETRIEVAL_FAILED);
         }
     }
 
-    public ResponseEntity<?> getUserProfile(UUID userId) {
+    public ResponseEntity<UserResponseDto> getUserProfile(UUID userId) {
         try {
             User user = findUserById(userId);
             return ResponseEntity.ok(userMapper.userToUserResponseDto(user));
         } catch (Exception ex) {
-            return buildErrorResponse(HttpStatus.INTERNAL_SERVER_ERROR, USER_PROFILE_RETRIEVAL_FAILED);
+            throw new BadCredentialsException(USER_PROFILE_RETRIEVAL_FAILED);
         }
     }
 
     @Transactional
-    public ResponseEntity<?> updateMyProfile(UserUpdateRequestDto updateRequest) {
+    public ResponseEntity<UserResponseDto> updateMyProfile(UserUpdateRequestDto updateRequest) {
         try {
             User currentUser = findAuthenticatedUser();
             userMapper.updateUserFromDto(updateRequest, currentUser);
             userRepository.save(currentUser);
             return ResponseEntity.ok(userMapper.userToUserResponseDto(currentUser));
         } catch (Exception ex) {
-            return buildErrorResponse(HttpStatus.INTERNAL_SERVER_ERROR, USER_PROFILE_UPDATE_FAILED);
+            throw new BadCredentialsException(USER_PROFILE_UPDATE_FAILED);
         }
     }
 
     @Transactional
-    public ResponseEntity<?> deactivateUser(UUID userId) {
+    public ResponseEntity<String> deactivateUser(UUID userId) {
         try {
             User user = findUserById(userId);
             if (!user.isActive()) {
-                return buildErrorResponse(HttpStatus.CONFLICT, USER_ALREADY_DEACTIVATED);
+                throw new UserAlreadyDeactivatedException(USER_ALREADY_DEACTIVATED);
             }
 
             user.setActive(false);
@@ -190,7 +181,7 @@ public class UserService implements IUserService {
             invalidateUserRefreshTokens(user);
             return ResponseEntity.ok(USER_DEACTIVATION_SUCCESS);
         } catch (Exception ex) {
-            return buildErrorResponse(HttpStatus.INTERNAL_SERVER_ERROR, USER_DEACTIVATION_FAILED);
+            return new ResponseEntity(USER_DEACTIVATION_FAILED, HttpStatus.INTERNAL_SERVER_ERROR);
         }
     }
 

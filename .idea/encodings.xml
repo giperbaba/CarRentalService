@@ -3,6 +3,7 @@
   <component name="Encoding">
     <file url="file://$PROJECT_DIR$/booking-app/src/main/java" charset="UTF-8" />
     <file url="file://$PROJECT_DIR$/car-app/src/main/java" charset="UTF-8" />
+    <file url="file://$PROJECT_DIR$/common-module/src/main/java" charset="UTF-8" />
     <file url="file://$PROJECT_DIR$/gateway-app/src/main/java" charset="UTF-8" />
     <file url="file://$PROJECT_DIR$/gateway/src/main/java" charset="UTF-8" />
     <file url="file://$PROJECT_DIR$/notification-app/src/main/java" charset="UTF-8" />

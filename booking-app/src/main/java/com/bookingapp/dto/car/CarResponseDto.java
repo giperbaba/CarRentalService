@@ -1,7 +1,7 @@
 package com.bookingapp.dto.car;
 
 import com.fasterxml.jackson.annotation.JsonFormat;
-import com.carapp.enums.CarStatus;
+import com.bookingapp.enums.CarStatus;
 import lombok.Data;
 
 import java.math.BigDecimal;

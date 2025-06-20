@@ -15,7 +15,7 @@ import com.bookingapp.mapper.BookingMapper;
 import com.bookingapp.repository.BookingRepository;
 import com.bookingapp.service.BookingEventService;
 import com.bookingapp.service.BookingService;
-import com.carapp.enums.CarStatus;
+import com.bookingapp.enums.CarStatus;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;

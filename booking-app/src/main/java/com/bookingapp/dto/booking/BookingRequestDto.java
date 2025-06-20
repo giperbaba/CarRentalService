@@ -16,7 +16,6 @@ import java.util.UUID;
 @NoArgsConstructor
 @AllArgsConstructor
 public class BookingRequestDto {
-    
     @NotNull(message = "Car ID is required")
     private UUID carId;
 

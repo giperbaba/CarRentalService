@@ -1,7 +1,7 @@
 package com.bookingapp.dto.booking;
 
 import com.bookingapp.constant.MessageConstants;
-import com.carapp.enums.CarStatus;
+import com.bookingapp.enums.CarStatus;
 import jakarta.validation.constraints.NotNull;
 import lombok.Data;
 
